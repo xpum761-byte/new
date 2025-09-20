@@ -1,0 +1,5 @@
+{
+  "name": "Synth V",
+  "description": "A modern, minimalist, and focused video generation application using AI. It features a clean interface with tabs for single video generation, batch processing, and a creative prompt generator.",
+  "requestFramePermissions": []
+}
