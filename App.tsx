@@ -60,12 +60,7 @@ const sidebarTabs: { id: Tab; label: string; icon: JSX.Element }[] = [
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onSettingsClick }) => {
   return (
     <aside className="w-64 bg-brand-surface flex flex-col p-4 border-r border-white/10 shrink-0 h-full">
-      <div className="mb-8">
-        <h1 className="text-2xl font-display font-bold text-brand-text tracking-wider">
-          Synth <span className="text-brand-primary">V</span>
-        </h1>
-      </div>
-      <nav className="flex flex-col space-y-2">
+      <nav className="flex flex-col space-y-2 mt-8">
         {sidebarTabs.map((tab) => (
           <button
             key={tab.id}
@@ -100,7 +95,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.PROMPT_GENERATOR);
   const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('geminiApiKey') || '');
   const [isSettingsOpen, setSettingsOpen] = useState(false);
-  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     // Persist API key to local storage
@@ -278,132 +273,129 @@ const App: React.FC = () => {
                     setSegments(prev => prev.map(s => s.id === segment.id ? {...s, status: 'generating'} : s));
                     const videoUrl = await generateVideo(segment.prompt, segment.image, segment.resolution, segment.aspectRatio);
                     setSegments(prev => prev.map(s => s.id === segment.id ? {...s, videoUrl, status: 'success'} : s));
-                } catch (error) {
-                    console.error(`Failed to generate video for segment ${segment.id}:`, error);
+                } catch (err) {
                     hasErrors = true;
+                    console.error(`Error generating segment ${index + 1}:`, err);
                     setSegments(prev => prev.map(s => s.id === segment.id ? {...s, status: 'error'} : s));
                 }
             }
-            
-            setGenerationState({
-                isGenerating: false,
-                progress: 100,
-                message: hasErrors ? 'Batch generation completed with errors.' : 'Batch generation successful!',
-                status: hasErrors ? 'error' : 'success',
-            });
-            return; 
+            if (hasErrors) {
+                throw new Error("One or more segments failed to generate. Check individual segments for errors.");
+            }
         }
       }
-
-      setGenerationState({
-        isGenerating: false,
-        progress: 100,
-        message: 'Generation successful!',
-        status: 'success',
-      });
-
-    } catch (e) {
-      console.error("Generation failed:", e);
-      setGenerationState({
-        isGenerating: false,
-        progress: 100,
-        message: e instanceof Error ? e.message : 'An unknown error occurred.',
-        status: 'error',
-      });
+      
+      setGenerationState({ isGenerating: false, progress: 100, message: 'Generation complete!', status: 'success' });
+    } catch (error) {
+      console.error("Generation failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      setGenerationState({ isGenerating: false, progress: 100, message: errorMessage, status: 'error' });
     }
-  }, [activeTab, singlePrompt, singleImage, segments, imagePrompt, imageAspectRatio, numberOfImages, apiKey, singleVideoResolution, singleVideoAspectRatio]);
+  }, [activeTab, apiKey, singlePrompt, singleImage, singleVideoResolution, singleVideoAspectRatio, segments, imagePrompt, numberOfImages, imageAspectRatio]);
+
+  const getTabTitle = (tab: Tab) => {
+    const tabInfo = sidebarTabs.find(t => t.id === tab);
+    return tabInfo ? tabInfo.label : 'Synth V';
+  };
   
-  const mainButtonText = activeTab === Tab.IMAGE_GENERATOR ? 'Generate Image' : (activeTab === Tab.PROMPT_GENERATOR ? 'Actions' : 'Generate Video');
-  const activeTabLabel = sidebarTabs.find(t => t.id === activeTab)?.label || 'Dashboard';
+  const getButtonText = () => {
+    switch(activeTab) {
+      case Tab.VIDEO_GENERATOR: return 'Generate Video';
+      case Tab.BATCH_GENERATOR: return 'Generate All';
+      case Tab.IMAGE_GENERATOR: return 'Generate Images';
+      default: return 'Generate';
+    }
+  };
 
   const renderActiveTab = () => {
-    const isGloballyGenerating = generationState.isGenerating;
     switch (activeTab) {
       case Tab.VIDEO_GENERATOR:
         return <VideoGeneratorTab 
-          prompt={singlePrompt}
-          setPrompt={setSinglePrompt}
-          image={singleImage}
-          setImage={setSingleImage}
-          videoUrl={singleVideoResult}
-          isGenerating={isGloballyGenerating}
-          resolution={singleVideoResolution}
-          setResolution={setSingleVideoResolution}
-          aspectRatio={singleVideoAspectRatio}
-          setAspectRatio={setSingleVideoAspectRatio}
-        />;
+                    prompt={singlePrompt}
+                    setPrompt={setSinglePrompt}
+                    image={singleImage}
+                    setImage={setSingleImage}
+                    videoUrl={singleVideoResult}
+                    isGenerating={generationState.isGenerating && activeTab === Tab.VIDEO_GENERATOR}
+                    resolution={singleVideoResolution}
+                    setResolution={setSingleVideoResolution}
+                    aspectRatio={singleVideoAspectRatio}
+                    setAspectRatio={setSingleVideoAspectRatio}
+                />;
       case Tab.BATCH_GENERATOR:
         return <BatchGeneratorTab segments={segments} setSegments={setSegments} />;
       case Tab.IMAGE_GENERATOR:
         return <ImageGeneratorTab 
-            prompt={imagePrompt} 
-            setPrompt={setImagePrompt} 
-            images={imageResults} 
-            aspectRatio={imageAspectRatio}
-            setAspectRatio={setImageAspectRatio}
-            numberOfImages={numberOfImages}
-            setNumberOfImages={setNumberOfImages}
-            isGenerating={isGloballyGenerating}
-        />;
+                    prompt={imagePrompt}
+                    setPrompt={setImagePrompt}
+                    images={imageResults}
+                    aspectRatio={imageAspectRatio}
+                    setAspectRatio={setImageAspectRatio}
+                    numberOfImages={numberOfImages}
+                    setNumberOfImages={setNumberOfImages}
+                    isGenerating={generationState.isGenerating && activeTab === Tab.IMAGE_GENERATOR}
+                />;
       case Tab.PROMPT_GENERATOR:
         return <PromptGeneratorTab onExportToBatch={handleExportToBatch} />;
       default:
-        return <VideoGeneratorTab 
-          prompt={singlePrompt}
-          setPrompt={setSinglePrompt}
-          image={singleImage}
-          setImage={setSingleImage}
-          videoUrl={singleVideoResult}
-          isGenerating={isGloballyGenerating}
-          resolution={singleVideoResolution}
-          setResolution={setSingleVideoResolution}
-          aspectRatio={singleVideoAspectRatio}
-          setAspectRatio={setSingleVideoAspectRatio}
-        />;
+        return null;
     }
   };
+  
+  const showFooter = activeTab !== Tab.PROMPT_GENERATOR;
 
   return (
-    <div className="flex h-screen font-sans bg-brand-bg text-brand-text">
-       <div className={`transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-64' : 'w-0'} shrink-0`}>
-        <div className="w-64 h-full overflow-hidden">
-           <Sidebar 
-            activeTab={activeTab} 
-            setActiveTab={setActiveTab} 
-            onSettingsClick={() => setSettingsOpen(true)} 
-          />
-        </div>
+    <div className="flex h-screen bg-brand-bg text-brand-text font-sans">
+      <div className={`fixed inset-y-0 left-0 z-30 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out bg-brand-surface md:translate-x-0`}>
+         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onSettingsClick={() => setSettingsOpen(true)} />
+      </div>
+      
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 z-20 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
+      )}
+
+      {/* Main content */}
+      <div className={`flex flex-col flex-1 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'md:ml-64' : 'ml-0'}`}>
+        {/* Header */}
+        <header className="bg-brand-surface/80 backdrop-blur-sm sticky top-0 z-20 flex items-center justify-between p-4 border-b border-white/10 shrink-0 h-16">
+           <div className="flex items-center gap-4">
+              <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 rounded-md hover:bg-white/10 transition-colors" aria-label="Toggle sidebar">
+                  {isSidebarOpen ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                  ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
+                  )}
+              </button>
+              <h1 className="text-xl font-semibold">{getTabTitle(activeTab)}</h1>
+           </div>
+           
+           <h1 className="text-2xl font-display font-bold text-brand-text tracking-wider">
+              Synth <span className="text-brand-primary">V</span>
+           </h1>
+        </header>
+
+        <main className="flex-1 overflow-y-auto p-6">
+          {renderActiveTab()}
+        </main>
+        
+        {showFooter && (
+            <Footer
+                onGenerateClick={handleGenerate}
+                generationState={generationState}
+                buttonText={getButtonText()}
+            />
+        )}
       </div>
 
       <SettingsModal 
-        isOpen={isSettingsOpen} 
-        onClose={() => setSettingsOpen(false)} 
-        onSave={handleSaveSettings} 
+        isOpen={isSettingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onSave={handleSaveSettings}
         currentApiKey={apiKey}
       />
-
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="flex items-center p-2 border-b border-white/10 shrink-0">
-          <button 
-            onClick={() => setSidebarOpen(!isSidebarOpen)} 
-            className="p-2 rounded-md hover:bg-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-accent"
-            aria-label={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-           <h2 className="text-lg font-semibold ml-4 text-brand-text-muted">{activeTabLabel}</h2>
-        </header>
-
-        <main className="flex-grow p-4 md:p-8 overflow-y-auto">
-          {renderActiveTab()}
-        </main>
-
-        {activeTab !== Tab.PROMPT_GENERATOR && (
-          <Footer onGenerateClick={handleGenerate} generationState={generationState} buttonText={mainButtonText} />
-        )}
-      </div>
     </div>
   );
 };
