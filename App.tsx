@@ -216,7 +216,7 @@ const App: React.FC = () => {
           } : undefined;
   
           let operation = await ai.models.generateVideos({
-              model: 'veo-2.0-generate-001',
+              model: 'veo-3.0-fast-generate-001',
               prompt,
               image,
               config: { 
