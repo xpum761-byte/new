@@ -25,5 +25,4 @@ export interface BatchSegment {
 
 export interface PromptGeneratorTabProps {
   onExportToBatch: (prompts: string[]) => void;
-  isSidebarOpen: boolean;
 }

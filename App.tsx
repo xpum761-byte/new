@@ -216,7 +216,7 @@ const App: React.FC = () => {
           } : undefined;
   
           let operation = await ai.models.generateVideos({
-              model: 'veo-2.0-generate-001',
+              model: 'veo-3.0-fast-generate-001',
               prompt,
               image,
               config: { 
@@ -336,7 +336,7 @@ const App: React.FC = () => {
                     isGenerating={generationState.isGenerating && activeTab === Tab.IMAGE_GENERATOR}
                 />;
       case Tab.PROMPT_GENERATOR:
-        return <PromptGeneratorTab onExportToBatch={handleExportToBatch} isSidebarOpen={isSidebarOpen} />;
+        return <PromptGeneratorTab onExportToBatch={handleExportToBatch} />;
       default:
         return null;
     }
