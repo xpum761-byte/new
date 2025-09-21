@@ -1,3 +1,4 @@
+
 import React, { ChangeEvent } from 'react';
 
 interface ImageGeneratorTabProps {
@@ -11,7 +12,8 @@ interface ImageGeneratorTabProps {
   isGenerating: boolean;
 }
 
-const aspectRatios = ['1:1', '16:9', '9:16', '4:3', '3:4', '21:9', '2:3', '4:5'];
+// FIX: Updated to only include supported aspect ratios for imagen-4.0-generate-001
+const aspectRatios = ['1:1', '16:9', '9:16', '4:3', '3:4'];
 
 export const ImageGeneratorTab: React.FC<ImageGeneratorTabProps> = ({ prompt, setPrompt, images, aspectRatio, setAspectRatio, numberOfImages, setNumberOfImages, isGenerating }) => {
   const handleDownload = (url: string, index: number) => {

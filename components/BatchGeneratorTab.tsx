@@ -1,3 +1,4 @@
+
 import React, { ChangeEvent, useRef } from 'react';
 import type { BatchSegment } from '../types';
 import { ImageDropzone } from './ImageDropzone';
@@ -20,15 +21,13 @@ const StatusIcon: React.FC<{ status: BatchSegment['status'] }> = ({ status }) =>
     }
 };
 
-const resolutions = ['720p', '1080p'];
-const aspectRatios = ['16:9', '9:16', '1:1', '4:3', '3:4'];
-
 export const BatchGeneratorTab: React.FC<BatchGeneratorTabProps> = ({ segments, setSegments }) => {
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
+  const videoAspectRatios = ['16:9', '9:16', '4:3'];
 
   const addSegment = () => {
-    setSegments([...segments, { id: crypto.randomUUID(), prompt: '', image: undefined, status: 'idle', resolution: '1080p', aspectRatio: '16:9' }]);
+    setSegments([...segments, { id: crypto.randomUUID(), prompt: '', image: undefined, status: 'idle', aspectRatio: '16:9' }]);
   };
 
   const removeSegment = (id: string) => {
@@ -92,26 +91,13 @@ export const BatchGeneratorTab: React.FC<BatchGeneratorTabProps> = ({ segments, 
                         rows={3}
                         className="w-full bg-brand-bg/50 border border-white/10 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-primary focus:outline-none"
                     />
-                    <div className="grid grid-cols-2 gap-2">
-                        <div>
-                            <label className="block text-xs font-medium text-brand-text-muted mb-1">Resolution</label>
-                            <select
-                                value={segment.resolution}
-                                onChange={(e) => updateSegment(segment.id, { resolution: e.target.value })}
-                                className="w-full bg-brand-bg/50 border border-white/10 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-primary focus:outline-none"
-                            >
-                                {resolutions.map(res => <option key={res} value={res}>{res}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-medium text-brand-text-muted mb-1">Aspect Ratio</label>
-                            <select
-                                value={segment.aspectRatio}
-                                onChange={(e) => updateSegment(segment.id, { aspectRatio: e.target.value })}
-                                className="w-full bg-brand-bg/50 border border-white/10 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-primary focus:outline-none"
-                            >
-                                {aspectRatios.map(ratio => <option key={ratio} value={ratio}>{ratio}</option>)}
-                            </select>
+                     <div>
+                        <div className="flex gap-2 flex-wrap">
+                            {videoAspectRatios.map(ratio => (
+                                <button key={ratio} onClick={() => updateSegment(segment.id, { aspectRatio: ratio })} className={`px-2 py-1 text-xs rounded-md transition-colors ${segment.aspectRatio === ratio ? 'bg-brand-primary text-white' : 'bg-brand-bg/50 hover:bg-white/10'}`}>
+                                    {ratio}
+                                </button>
+                            ))}
                         </div>
                     </div>
                     <ImageDropzone 

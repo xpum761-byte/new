@@ -67,7 +67,7 @@ const Accordion: React.FC<{ title: React.ReactNode; children: React.ReactNode; d
           xmlns="http://www.w3.org/2000/svg"
           className={`w-5 h-5 transition-transform duration-300 shrink-0 ml-4 ${isOpen ? 'rotate-180' : ''}`}
           fill="none"
-          viewBox="0 0 24"
+          viewBox="0 0 24 24"
           stroke="currentColor"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
@@ -133,10 +133,10 @@ const cameraAngles = ["Normal (Eye-level)", "High-angle", "Low-angle", "Dutch An
 const graphicStyles = ["Realistic", "Cartoon", "Anime", "Fantasy", "Cyberpunk", "Vintage"];
 const lightings = ["Siang Hari (Cerah)", "Malam Hari", "Mendung", "Golden Hour", "Blue Hour", "Neon"];
 
-export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExportToBatch }) => {
+export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExportToBatch, isSidebarOpen }) => {
   const [characters, setCharacters] = useState<Character[]>([createNewCharacter()]);
   const [sceneSettings, setSceneSettings] = useState<SceneSettings>(initialSceneSettings);
-  const [canvasContent, setCanvasContent] = useState('');
+  const [canvasOutput, setCanvasOutput] = useState('');
   const [copyButtonText, setCopyButtonText] = useState('Salin Canvas');
   const [clipSegments, setClipSegments] = useState<ClipSegment[]>([
     { id: crypto.randomUUID(), startTime: '0', endTime: '8' }
@@ -223,7 +223,8 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExport
   }, [characters, sceneSettings]);
 
   useEffect(() => {
-    setCanvasContent(generateFullCanvas());
+    const content = generateFullCanvas();
+    setCanvasOutput(content);
   }, [generateFullCanvas]);
 
 
@@ -284,7 +285,7 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExport
   };
     
   const handleCopyCanvas = () => {
-    navigator.clipboard.writeText(canvasContent).then(() => {
+    navigator.clipboard.writeText(canvasOutput).then(() => {
         setCopyButtonText('Disalin!');
         setTimeout(() => setCopyButtonText('Salin Canvas'), 2000);
     });
@@ -314,131 +315,141 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExport
   );
 
   return (
-    <div className="space-y-8 pb-8">
-      {/* --- INPUTS SECTION --- */}
-      <div className="space-y-6">
-        {/* --- CHARACTERS SECTION --- */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-bold text-brand-text px-1">1. Karakter</h2>
-          {characters.map((char, charIndex) => (
-              <Accordion 
-                  key={char.id}
-                  defaultOpen={charIndex === characters.length - 1}
-                  title={
-                      <div className="flex justify-between items-center w-full pr-2">
-                          <span className="truncate">Karakter {charIndex + 1}: {char.name || 'Tanpa Nama'}</span>
-                          {characters.length > 1 && (
-                              <button
-                                  onClick={(e) => {
-                                      e.stopPropagation();
-                                      removeCharacter(char.id);
-                                  }}
-                                  className="text-red-500 hover:text-red-400 text-sm z-10 relative font-normal shrink-0 ml-4"
-                                  aria-label={`Hapus Karakter ${charIndex + 1}`}
-                              >
-                                  Hapus
-                              </button>
-                          )}
-                      </div>
-                  }
-              >
-                  <div className="space-y-4">
-                      {/* Character Details */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {renderInputField('Nama', char.name, e => updateCharacter(char.id, 'name', e.target.value), 'Nama Karakter')}
-                          {renderInputField('Kebangsaan', char.nationality, e => updateCharacter(char.id, 'nationality', e.target.value))}
-                          {renderTextareaField('Ciri Dasar', char.traits, e => updateCharacter(char.id, 'traits', e.target.value), 'Contoh: Pemberani, Cerdas, Pemalu')}
-                          {renderTextareaField('Penampilan', char.appearance, e => updateCharacter(char.id, 'appearance', e.target.value), 'Deskripsi penampilan fisik karakter...')}
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                          {renderSelectField('Jenis Suara', char.voice.type, e => updateVoiceSetting(char.id, 'type', e.target.value), voiceTypes)}
-                          {renderSelectField('Pitch Nada', char.voice.pitch, e => updateVoiceSetting(char.id, 'pitch', e.target.value), pitches)}
-                          {renderSelectField('Timbre', char.voice.timbre, e => updateVoiceSetting(char.id, 'timbre', e.target.value), timbres)}
-                          {renderInputField('Konsistensi Suara', char.voice.consistency, e => updateVoiceSetting(char.id, 'consistency', e.target.value), 'Deskripsikan konsistensi...')}
-                      </div>
-
-                      {/* Timeline Events */}
-                      <div className="space-y-3">
-                          <h4 className="font-semibold text-brand-text-muted mt-4">Aksi & Dialog Berbasis Timestamp</h4>
-                          {char.timeline.map(event => (
-                              <div key={event.id} className="bg-brand-bg/50 p-3 rounded-lg space-y-2">
-                                  <div className="flex justify-between items-center">
-                                      <span className="text-sm font-bold text-brand-accent">{event.type === 'action' ? 'Aksi' : 'Dialog'}</span>
-                                      <button onClick={() => removeTimelineEvent(char.id, event.id)} className="text-red-500 hover:text-red-400 text-xl font-bold">&times;</button>
-                                  </div>
-                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 items-end">
-                                      {renderInputField('Mulai (s)', event.start, e => updateTimelineEvent(char.id, event.id, 'start', e.target.value), '', 'number')}
-                                      {renderInputField('Akhir (s)', event.end, e => updateTimelineEvent(char.id, event.id, 'end', e.target.value), '', 'number')}
-                                      <span className="text-xs text-brand-text-muted pb-2">Durasi: {calculateDuration(event.start, event.end)}s</span>
-                                  </div>
-                                  {event.type === 'action' ? (
-                                      renderTextareaField('Deskripsi Aksi', event.description, e => updateTimelineEvent(char.id, event.id, 'description', e.target.value))
-                                  ) : (
-                                      renderTextareaField('Teks Dialog', event.text, e => updateTimelineEvent(char.id, event.id, 'text', e.target.value))
-                                  )}
-                              </div>
-                          ))}
-                          <div className="flex gap-2">
-                              <button onClick={() => addTimelineEvent(char.id, 'action')} className="flex-1 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold py-2 px-4 rounded-md transition-colors">+ Tambah Aksi</button>
-                              <button onClick={() => addTimelineEvent(char.id, 'dialogue')} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold py-2 px-4 rounded-md transition-colors">+ Tambah Dialog</button>
-                          </div>
-                      </div>
-                  </div>
-              </Accordion>
-          ))}
-          <button onClick={addCharacter} className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-4 rounded-md transition-colors">+ Tambah Karakter</button>
-        </div>
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
         
-        {/* --- SCENE SETTINGS SECTION --- */}
-        <Accordion title={<h2 className="text-xl font-bold text-brand-text">2. Pengaturan Suasana</h2>}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {renderInputField('Suasana', sceneSettings.mood, e => updateSceneSetting('mood', e.target.value), 'Contoh: Tegang, Romantis, Menyenangkan')}
-              {renderInputField('Suara Latar Belakang', sceneSettings.backgroundSound, e => updateSceneSetting('backgroundSound', e.target.value), 'Contoh: Hujan deras, Musik klasik')}
-              {renderSelectField('Sudut Pandang Kamera', sceneSettings.cameraAngle, e => updateSceneSetting('cameraAngle', e.target.value), cameraAngles)}
-              {renderSelectField('Gaya Grafis', sceneSettings.graphicStyle, e => updateSceneSetting('graphicStyle', e.target.value), graphicStyles)}
-              {renderSelectField('Pencahayaan', sceneSettings.lighting, e => updateSceneSetting('lighting', e.target.value), lightings)}
-          </div>
-        </Accordion>
+        {/* --- LEFT COLUMN: INPUTS --- */}
+        <div className="lg:col-span-3 space-y-6 pb-48 md:pb-28">
+            {/* --- CHARACTERS SECTION --- */}
+            <div className="space-y-4">
+                <h2 className="text-xl font-bold text-brand-text px-1">1. Karakter</h2>
+                {characters.map((char, charIndex) => (
+                    <Accordion 
+                        key={char.id}
+                        defaultOpen={charIndex === characters.length - 1}
+                        title={
+                            <div className="flex justify-between items-center w-full pr-2">
+                                <span className="truncate">Karakter {charIndex + 1}: {char.name || 'Tanpa Nama'}</span>
+                                {characters.length > 1 && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            removeCharacter(char.id);
+                                        }}
+                                        className="text-red-500 hover:text-red-400 text-sm z-10 relative font-normal shrink-0 ml-4"
+                                        aria-label={`Hapus Karakter ${charIndex + 1}`}
+                                    >
+                                        Hapus
+                                    </button>
+                                )}
+                            </div>
+                        }
+                    >
+                        <div className="space-y-4">
+                            {/* Character Details */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {renderInputField('Nama', char.name, e => updateCharacter(char.id, 'name', e.target.value), 'Nama Karakter')}
+                                {renderInputField('Kebangsaan', char.nationality, e => updateCharacter(char.id, 'nationality', e.target.value))}
+                                {renderTextareaField('Ciri Dasar', char.traits, e => updateCharacter(char.id, 'traits', e.target.value), 'Contoh: Pemberani, Cerdas, Pemalu')}
+                                {renderTextareaField('Penampilan', char.appearance, e => updateCharacter(char.id, 'appearance', e.target.value), 'Deskripsi penampilan fisik karakter...')}
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                {renderSelectField('Jenis Suara', char.voice.type, e => updateVoiceSetting(char.id, 'type', e.target.value), voiceTypes)}
+                                {renderSelectField('Pitch Nada', char.voice.pitch, e => updateVoiceSetting(char.id, 'pitch', e.target.value), pitches)}
+                                {renderSelectField('Timbre', char.voice.timbre, e => updateVoiceSetting(char.id, 'timbre', e.target.value), timbres)}
+                                {renderInputField('Konsistensi Suara', char.voice.consistency, e => updateVoiceSetting(char.id, 'consistency', e.target.value), 'Deskripsikan konsistensi...')}
+                            </div>
 
-        {/* --- CLIP COMBINER SECTION --- */}
-        <Accordion title={<h2 className="text-xl font-bold text-brand-text">3. Penggabung Klip</h2>} defaultOpen>
-            <div className="space-y-3">
-                {clipSegments.map((segment, index) => (
-                    <div key={segment.id} className="flex items-center gap-3 bg-brand-bg/50 p-2 rounded-md">
-                        <span className="text-sm font-mono text-brand-text-muted">{index + 1}</span>
-                        <div className="flex-grow grid grid-cols-2 gap-2">
-                            {renderInputField('Mulai (detik)', segment.startTime, e => updateClipSegment(segment.id, 'startTime', e.target.value), '', 'number')}
-                            {renderInputField('Akhir (detik)', segment.endTime, e => updateClipSegment(segment.id, 'endTime', e.target.value), '', 'number')}
+                            {/* Timeline Events */}
+                            <div className="space-y-3">
+                                <h4 className="font-semibold text-brand-text-muted mt-4">Aksi & Dialog Berbasis Timestamp</h4>
+                                {char.timeline.map(event => (
+                                    <div key={event.id} className="bg-brand-bg/50 p-3 rounded-lg space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-sm font-bold text-brand-accent">{event.type === 'action' ? 'Aksi' : 'Dialog'}</span>
+                                            <button onClick={() => removeTimelineEvent(char.id, event.id)} className="text-red-500 hover:text-red-400 text-xl font-bold">&times;</button>
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 items-end">
+                                            {renderInputField('Mulai (s)', event.start, e => updateTimelineEvent(char.id, event.id, 'start', e.target.value), '', 'number')}
+                                            {renderInputField('Akhir (s)', event.end, e => updateTimelineEvent(char.id, event.id, 'end', e.target.value), '', 'number')}
+                                            <span className="text-xs text-brand-text-muted pb-2">Durasi: {calculateDuration(event.start, event.end)}s</span>
+                                        </div>
+                                        {event.type === 'action' ? (
+                                            renderTextareaField('Deskripsi Aksi', event.description, e => updateTimelineEvent(char.id, event.id, 'description', e.target.value))
+                                        ) : (
+                                            renderTextareaField('Teks Dialog', event.text, e => updateTimelineEvent(char.id, event.id, 'text', e.target.value))
+                                        )}
+                                    </div>
+                                ))}
+                                <div className="flex gap-2">
+                                    <button onClick={() => addTimelineEvent(char.id, 'action')} className="flex-1 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold py-2 px-4 rounded-md transition-colors">+ Tambah Aksi</button>
+                                    <button onClick={() => addTimelineEvent(char.id, 'dialogue')} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold py-2 px-4 rounded-md transition-colors">+ Tambah Dialog</button>
+                                </div>
+                            </div>
                         </div>
-                        <button
-                            onClick={() => removeClipSegment(segment.id)}
-                            className="text-red-500 hover:text-red-400 p-1 shrink-0"
-                            aria-label={`Hapus segmen ${index + 1}`}
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                        </button>
+                    </Accordion>
+                ))}
+                <button onClick={addCharacter} className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-4 rounded-md transition-colors">+ Tambah Karakter</button>
+            </div>
+            
+            {/* --- SCENE SETTINGS SECTION --- */}
+            <Accordion title={<h2 className="text-xl font-bold text-brand-text">2. Pengaturan Suasana</h2>}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderInputField('Suasana', sceneSettings.mood, e => updateSceneSetting('mood', e.target.value), 'Contoh: Tegang, Romantis, Menyenangkan')}
+                    {renderInputField('Suara Latar Belakang', sceneSettings.backgroundSound, e => updateSceneSetting('backgroundSound', e.target.value), 'Contoh: Hujan deras, Musik klasik')}
+                    {renderSelectField('Sudut Pandang Kamera', sceneSettings.cameraAngle, e => updateSceneSetting('cameraAngle', e.target.value), cameraAngles)}
+                    {renderSelectField('Gaya Grafis', sceneSettings.graphicStyle, e => updateSceneSetting('graphicStyle', e.target.value), graphicStyles)}
+                    {renderSelectField('Pencahayaan', sceneSettings.lighting, e => updateSceneSetting('lighting', e.target.value), lightings)}
+                </div>
+            </Accordion>
+
+            {/* --- CLIP COMBINER SECTION --- */}
+            <Accordion title={<h2 className="text-xl font-bold text-brand-text">3. Penggabung Klip</h2>} defaultOpen>
+                <div className="space-y-3">
+                {clipSegments.map((segment, index) => (
+                    <div key={segment.id} className="flex items-end gap-2 bg-brand-bg/50 p-3 rounded-lg">
+                    <span className="text-brand-text-muted font-mono text-sm pt-1 mr-2">{index + 1}</span>
+                    <div className="flex-grow">
+                        {renderInputField('Mulai (detik)', segment.startTime, e => updateClipSegment(segment.id, 'startTime', e.target.value), '', 'number')}
+                    </div>
+                    <div className="flex-grow">
+                        {renderInputField('Akhir (detik)', segment.endTime, e => updateClipSegment(segment.id, 'endTime', e.target.value), '', 'number')}
+                    </div>
+                    <button onClick={() => removeClipSegment(segment.id)} className="p-2 text-red-500 hover:text-red-400 rounded-md hover:bg-white/10 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
                     </div>
                 ))}
-                <button onClick={addClipSegment} className="w-full mt-2 bg-brand-accent/80 hover:bg-brand-accent text-white font-semibold py-2 px-4 rounded-md transition-colors">+ Tambah Segmen Klip</button>
-            </div>
-        </Accordion>
-      </div>
-
-      {/* --- OUTPUT CANVAS SECTION --- */}
-      <div className="space-y-4">
-        <h2 className="text-xl font-bold text-brand-text px-1">4. Output Canvas</h2>
-        <pre className="w-full h-96 overflow-y-auto bg-brand-bg/50 border border-white/10 rounded-lg p-4 text-sm whitespace-pre-wrap font-mono">
-          {canvasContent}
-        </pre>
-        <div className="flex flex-col md:flex-row gap-4">
-          <button onClick={handleCopyCanvas} className="w-full md:w-auto px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-md transition-colors">
-            {copyButtonText}
-          </button>
-          <button onClick={handleExportToBatchClick} className="w-full md:w-auto px-6 py-2 bg-brand-primary hover:bg-purple-500 text-white font-semibold rounded-md transition-colors">
-            Ekspor ke Batch
-          </button>
+                <button onClick={addClipSegment} className="w-full mt-2 bg-brand-accent/80 hover:bg-brand-accent text-white font-semibold py-2 px-4 rounded-md transition-colors">
+                    + Tambah Segmen Klip
+                </button>
+                </div>
+            </Accordion>
         </div>
-      </div>
+
+        {/* --- RIGHT COLUMN: OUTPUT CANVAS --- */}
+        <div className="lg:col-span-2 relative">
+            <div className="lg:sticky lg:top-24 h-fit">
+                <h2 className="text-xl font-bold text-brand-text mb-4">Prompt Canvas</h2>
+                <div className="bg-brand-surface rounded-lg shadow-inner h-[calc(100vh-20rem)] max-h-[700px]">
+                    <pre className="whitespace-pre-wrap break-words text-sm p-4 overflow-y-auto text-brand-text-muted h-full w-full rounded-lg">
+                        {canvasOutput}
+                    </pre>
+                </div>
+            </div>
+        </div>
+
+
+        {/* --- FOOTER ACTIONS --- */}
+        <div className={`fixed bottom-0 right-0 bg-brand-surface/80 backdrop-blur-sm border-t border-white/10 p-4 z-10 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'md:left-64' : 'left-0'}`}>
+            <div className="container mx-auto flex flex-col md:flex-row justify-end items-center gap-4">
+                <button onClick={handleCopyCanvas} className="w-full md:w-auto px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-500 transition-colors">
+                    {copyButtonText}
+                </button>
+                <button onClick={handleExportToBatchClick} className="w-full md:w-auto px-8 py-2 bg-brand-primary text-white font-bold rounded-md hover:bg-purple-500 transition-colors shadow-lg shadow-brand-primary/20">
+                    Ekspor ke Batch
+                </button>
+            </div>
+        </div>
     </div>
   );
 };

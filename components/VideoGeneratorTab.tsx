@@ -5,21 +5,17 @@ import { ImageDropzone } from './ImageDropzone';
 interface VideoGeneratorTabProps {
   prompt: string;
   setPrompt: (prompt: string) => void;
-  image?: File;
-  setImage: (image?: File) => void;
+  startImage?: File;
+  setStartImage: (image?: File) => void;
+  endImage?: File;
+  setEndImage: (image?: File) => void;
   videoUrl: string | null;
   isGenerating: boolean;
-  resolution: string;
-  setResolution: (resolution: string) => void;
   aspectRatio: string;
-  setAspectRatio: (aspectRatio: string) => void;
+  setAspectRatio: (ratio: string) => void;
 }
 
-const resolutions = ['720p', '1080p'];
-const aspectRatios = ['16:9', '9:16', '1:1', '4:3', '3:4'];
-
-
-export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ prompt, setPrompt, image, setImage, videoUrl, isGenerating, resolution, setResolution, aspectRatio, setAspectRatio }) => {
+export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ prompt, setPrompt, startImage, setStartImage, endImage, setEndImage, videoUrl, isGenerating, aspectRatio, setAspectRatio }) => {
   const handleDownload = () => {
     if (!videoUrl) return;
     const link = document.createElement('a');
@@ -29,6 +25,8 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ prompt, se
     link.click();
     document.body.removeChild(link);
   };
+
+  const videoAspectRatios = ['16:9', '9:16', '4:3'];
 
   return (
     <div className="grid md:grid-cols-2 gap-8 h-full">
@@ -41,46 +39,46 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ prompt, se
             id="video-prompt"
             value={prompt}
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setPrompt(e.target.value)}
-            placeholder="e.g., A majestic lion roaring on a rocky outcrop at sunset"
+            placeholder="e.g., A majestic lion roaring on a rocky outcrop at sunset, slowly transitioning into a starry night sky"
             rows={5}
             className="w-full bg-brand-surface border border-white/10 rounded-md p-3 text-brand-text focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
           />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-2">
-              Resolution
-            </label>
-            <div className="flex gap-2 flex-wrap">
-              {resolutions.map(res => (
-                  <button key={res} onClick={() => setResolution(res)} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${resolution === res ? 'bg-brand-primary text-white' : 'bg-brand-surface hover:bg-brand-surface/50'}`}>
-                      {res}
-                  </button>
-              ))}
-            </div>
-          </div>
-           <div>
-            <label className="block text-sm font-medium text-brand-text-muted mb-2">
-              Aspect Ratio
-            </label>
-            <div className="flex gap-2 flex-wrap">
-              {aspectRatios.map(ratio => (
-                  <button key={ratio} onClick={() => setAspectRatio(ratio)} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${aspectRatio === ratio ? 'bg-brand-primary text-white' : 'bg-brand-surface hover:bg-brand-surface/50'}`}>
-                      {ratio}
-                  </button>
-              ))}
-            </div>
-          </div>
-        </div>
         <div>
-          <label className="block text-sm font-medium text-brand-text-muted mb-2">
-            Optional Image
-          </label>
-          <ImageDropzone 
-            imageFile={image}
-            onFileChange={setImage}
-            onFileRemove={() => setImage(undefined)}
-          />
+            <label className="block text-sm font-medium text-brand-text-muted mb-2">
+                Aspect Ratio
+            </label>
+            <div className="flex gap-2 flex-wrap">
+            {videoAspectRatios.map(ratio => (
+                <button key={ratio} onClick={() => setAspectRatio(ratio)} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${aspectRatio === ratio ? 'bg-brand-primary text-white' : 'bg-brand-surface hover:bg-white/10'}`}>
+                    {ratio}
+                </button>
+            ))}
+            </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+                <label className="block text-sm font-medium text-brand-text-muted mb-2">
+                Start Image (Optional)
+                </label>
+                <ImageDropzone 
+                    imageFile={startImage}
+                    onFileChange={setStartImage}
+                    onFileRemove={() => setStartImage(undefined)}
+                    promptText="Drag & drop Start Image"
+                />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-brand-text-muted mb-2">
+                End Image (Optional)
+                </label>
+                <ImageDropzone 
+                    imageFile={endImage}
+                    onFileChange={setEndImage}
+                    onFileRemove={() => setEndImage(undefined)}
+                    promptText="Drag & drop End Image"
+                />
+            </div>
         </div>
       </div>
       <div className="bg-brand-surface rounded-lg flex items-center justify-center p-4 min-h-[300px] md:min-h-0 relative">
