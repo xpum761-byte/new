@@ -364,7 +364,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-brand-bg text-brand-text font-sans">
-      <div className={`fixed inset-y-0 left-0 z-30 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out bg-brand-surface md:translate-x-0`}>
+      <div className={`fixed inset-y-0 left-0 z-30 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out bg-brand-surface md:static md:transform-none`}>
          <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onSettingsClick={() => setSettingsOpen(true)} />
       </div>
       
@@ -376,7 +376,7 @@ const App: React.FC = () => {
       )}
 
       {/* Main content */}
-      <div className="flex flex-col flex-1 md:ml-64">
+      <div className="flex flex-col flex-1 min-w-0">
         {/* Header */}
         <header className="bg-brand-surface/80 backdrop-blur-sm sticky top-0 z-20 flex items-center justify-between p-4 border-b border-white/10 shrink-0 h-16">
            <div className="flex items-center gap-4">
