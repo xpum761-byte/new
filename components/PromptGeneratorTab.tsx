@@ -430,7 +430,7 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExport
         <div className="lg:col-span-2 relative">
             <div className="lg:sticky lg:top-24 h-fit">
                 <h2 className="text-xl font-bold text-brand-text mb-4">Prompt Canvas</h2>
-                <div className="bg-brand-surface rounded-lg shadow-inner h-[60vh] lg:h-[calc(100vh-14rem)]">
+                <div className="bg-brand-surface rounded-lg shadow-inner h-[70vh] lg:h-[calc(100vh-13rem)]">
                     <pre className="whitespace-pre-wrap break-words text-sm p-4 overflow-y-auto text-brand-text-muted h-full w-full rounded-lg">
                         {canvasOutput}
                     </pre>
@@ -441,7 +441,7 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExport
 
         {/* --- FOOTER ACTIONS --- */}
         <div className="fixed bottom-0 left-0 right-0 bg-brand-surface/80 backdrop-blur-sm border-t border-white/10 p-4 z-10 md:left-64">
-            <div className="container mx-auto flex flex-col md:flex-row justify-end items-center gap-4">
+            <div className="container mx-auto flex flex-col md:flex-row justify-end items-center gap-6">
                 <button onClick={handleCopyCanvas} className="w-full md:w-auto px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-500 transition-colors">
                     {copyButtonText}
                 </button>
