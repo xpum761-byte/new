@@ -19,10 +19,10 @@ export interface BatchSegment {
   image?: File;
   videoUrl?: string;
   status: 'idle' | 'generating' | 'success' | 'error';
-  resolution: string;
   aspectRatio: string;
 }
 
 export interface PromptGeneratorTabProps {
   onExportToBatch: (prompts: string[]) => void;
+  isSidebarOpen: boolean;
 }

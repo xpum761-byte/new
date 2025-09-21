@@ -116,15 +116,15 @@ const App: React.FC = () => {
   
   // State for single video generator
   const [singlePrompt, setSinglePrompt] = useState('');
-  const [singleImage, setSingleImage] = useState<File | undefined>();
+  const [singleStartImage, setSingleStartImage] = useState<File | undefined>();
+  const [singleEndImage, setSingleEndImage] = useState<File | undefined>();
   const [singleVideoResult, setSingleVideoResult] = useState<string | null>(null);
-  const [singleVideoResolution, setSingleVideoResolution] = useState('1080p');
   const [singleVideoAspectRatio, setSingleVideoAspectRatio] = useState('16:9');
 
 
   // State for batch video generator
   const [segments, setSegments] = useState<BatchSegment[]>([
-    { id: crypto.randomUUID(), prompt: '', image: undefined, status: 'idle', resolution: '1080p', aspectRatio: '16:9' },
+    { id: crypto.randomUUID(), prompt: '', image: undefined, status: 'idle', aspectRatio: '16:9' },
   ]);
 
   // State for image generator
@@ -140,7 +140,6 @@ const App: React.FC = () => {
       image: undefined,
       videoUrl: undefined,
       status: 'idle',
-      resolution: '1080p',
       aspectRatio: '16:9',
     }));
     
@@ -205,61 +204,80 @@ const App: React.FC = () => {
         setImageResults(imageUrls);
 
       } else { // Handle video generation
-        const generateVideo = async (prompt: string, imageFile?: File, resolution: string = '1080p', aspectRatio: string = '16:9') => {
-          if (!prompt.trim()) {
-              throw new Error("Prompt cannot be empty.");
-          }
-          
-          const image = imageFile ? {
-              imageBytes: await fileToBase64(imageFile),
-              mimeType: imageFile.type,
-          } : undefined;
-  
-          let operation = await ai.models.generateVideos({
-              model: 'veo-3.0-fast-generate-001',
-              prompt,
-              image,
-              config: { 
-                numberOfVideos: 1,
-                resolution,
-                aspectRatio,
-              }
-          });
-  
-          let pollCount = 0;
-          const maxPolls = 30; // ~5 minutes timeout if polling every 10s
-  
-          while (!operation.done && pollCount < maxPolls) {
-              await new Promise(resolve => setTimeout(resolve, 10000));
-              operation = await ai.operations.getVideosOperation({ operation });
-              pollCount++;
-              const progress = 10 + (pollCount / maxPolls) * 80;
-              setGenerationState(prevState => ({ ...prevState, progress, message: `Polling for results... (${pollCount})` }));
-          }
-  
-          if (!operation.done) {
-              throw new Error("Video generation timed out.");
-          }
-          
-          const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-          if (!downloadLink) {
-              throw new Error("No video URI found in the generation response.");
-          }
-          
-          setGenerationState(prevState => ({ ...prevState, progress: 95, message: 'Downloading video...' }));
-          
-          const videoResponse = await fetch(`${downloadLink}&key=${effectiveApiKey}`);
-          if (!videoResponse.ok) {
-              throw new Error(`Failed to download generated video: ${videoResponse.statusText}`);
-          }
-          const videoBlob = await videoResponse.blob();
-          return URL.createObjectURL(videoBlob);
+        const generateVideo = async (prompt: string, startImageFile?: File, endImageFile?: File, aspectRatio: string = '16:9') => {
+            if (!prompt.trim() && !startImageFile) {
+                throw new Error("A prompt or a start image is required.");
+            }
+            
+            let finalPrompt = prompt;
+
+            // If there's an end image, get its description and amend the prompt
+            if (endImageFile) {
+              setGenerationState(prevState => ({ ...prevState, progress: 2, message: 'Analyzing end image...' }));
+              const endImageBase64 = await fileToBase64(endImageFile);
+              const descriptionResponse = await ai.models.generateContent({
+                  model: 'gemini-2.5-flash',
+                  contents: { parts: [
+                      { text: "Describe this image in detail for a video generation AI. Focus on objects, style, and composition." },
+                      { inlineData: { mimeType: endImageFile.type, data: endImageBase64 } }
+                  ] },
+              });
+              const endImageDescription = descriptionResponse.text;
+              
+              const transitionInstruction = `The video should smoothly animate and transition into a new scene that perfectly matches this description: ${endImageDescription}`;
+              
+              finalPrompt = prompt.trim() ? `${prompt}. ${transitionInstruction}` : transitionInstruction;
+            }
+            
+            const image = startImageFile ? {
+                imageBytes: await fileToBase64(startImageFile),
+                mimeType: startImageFile.type,
+            } : undefined;
+    
+            let operation = await ai.models.generateVideos({
+                model: 'veo-3.0-fast-generate-001',
+                prompt: finalPrompt,
+                image,
+                config: { 
+                  numberOfVideos: 1,
+                  aspectRatio: aspectRatio,
+                }
+            });
+    
+            let pollCount = 0;
+            const maxPolls = 30; // ~5 minutes timeout if polling every 10s
+    
+            while (!operation.done && pollCount < maxPolls) {
+                await new Promise(resolve => setTimeout(resolve, 10000));
+                operation = await ai.operations.getVideosOperation({ operation });
+                pollCount++;
+                const progress = 10 + (pollCount / maxPolls) * 80;
+                setGenerationState(prevState => ({ ...prevState, progress, message: `Polling for results... (${pollCount})` }));
+            }
+    
+            if (!operation.done) {
+                throw new Error("Video generation timed out.");
+            }
+            
+            const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+            if (!downloadLink) {
+                throw new Error("No video URI found in the generation response.");
+            }
+            
+            setGenerationState(prevState => ({ ...prevState, progress: 95, message: 'Downloading video...' }));
+            
+            const videoResponse = await fetch(`${downloadLink}&key=${effectiveApiKey}`);
+            if (!videoResponse.ok) {
+                throw new Error(`Failed to download generated video: ${videoResponse.statusText}`);
+            }
+            const videoBlob = await videoResponse.blob();
+            return URL.createObjectURL(videoBlob);
         };
-  
+    
         if (activeTab === Tab.VIDEO_GENERATOR) {
-          setGenerationState(prevState => ({ ...prevState, progress: 5, message: 'Starting video generation...' }));
-          const videoUrl = await generateVideo(singlePrompt, singleImage, singleVideoResolution, singleVideoAspectRatio);
-          setSingleVideoResult(videoUrl);
+            setGenerationState(prevState => ({ ...prevState, progress: 5, message: 'Starting video generation...' }));
+            const videoUrl = await generateVideo(singlePrompt, singleStartImage, singleEndImage, singleVideoAspectRatio);
+            setSingleVideoResult(videoUrl);
         } else if (activeTab === Tab.BATCH_GENERATOR) {
             const segmentsToGenerate = segments.filter(s => s.prompt.trim());
             if (segmentsToGenerate.length === 0) {
@@ -271,7 +289,7 @@ const App: React.FC = () => {
                 try {
                     setGenerationState(prevState => ({ ...prevState, progress: (index / segmentsToGenerate.length) * 100, message: `Starting segment ${index + 1}...` }));
                     setSegments(prev => prev.map(s => s.id === segment.id ? {...s, status: 'generating'} : s));
-                    const videoUrl = await generateVideo(segment.prompt, segment.image, segment.resolution, segment.aspectRatio);
+                    const videoUrl = await generateVideo(segment.prompt, segment.image, undefined, segment.aspectRatio);
                     setSegments(prev => prev.map(s => s.id === segment.id ? {...s, videoUrl, status: 'success'} : s));
                 } catch (err) {
                     hasErrors = true;
@@ -291,7 +309,7 @@ const App: React.FC = () => {
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
       setGenerationState({ isGenerating: false, progress: 100, message: errorMessage, status: 'error' });
     }
-  }, [activeTab, apiKey, singlePrompt, singleImage, singleVideoResolution, singleVideoAspectRatio, segments, imagePrompt, numberOfImages, imageAspectRatio]);
+  }, [activeTab, apiKey, singlePrompt, singleStartImage, singleEndImage, singleVideoAspectRatio, segments, imagePrompt, numberOfImages, imageAspectRatio]);
 
   const getTabTitle = (tab: Tab) => {
     const tabInfo = sidebarTabs.find(t => t.id === tab);
@@ -313,12 +331,12 @@ const App: React.FC = () => {
         return <VideoGeneratorTab 
                     prompt={singlePrompt}
                     setPrompt={setSinglePrompt}
-                    image={singleImage}
-                    setImage={setSingleImage}
+                    startImage={singleStartImage}
+                    setStartImage={setSingleStartImage}
+                    endImage={singleEndImage}
+                    setEndImage={setSingleEndImage}
                     videoUrl={singleVideoResult}
                     isGenerating={generationState.isGenerating && activeTab === Tab.VIDEO_GENERATOR}
-                    resolution={singleVideoResolution}
-                    setResolution={setSingleVideoResolution}
                     aspectRatio={singleVideoAspectRatio}
                     setAspectRatio={setSingleVideoAspectRatio}
                 />;
@@ -336,7 +354,7 @@ const App: React.FC = () => {
                     isGenerating={generationState.isGenerating && activeTab === Tab.IMAGE_GENERATOR}
                 />;
       case Tab.PROMPT_GENERATOR:
-        return <PromptGeneratorTab onExportToBatch={handleExportToBatch} />;
+        return <PromptGeneratorTab onExportToBatch={handleExportToBatch} isSidebarOpen={isSidebarOpen} />;
       default:
         return null;
     }
