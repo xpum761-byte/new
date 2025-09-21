@@ -376,11 +376,11 @@ const App: React.FC = () => {
       )}
 
       {/* Main content */}
-      <div className={`flex flex-col flex-1 transition-all duration-300 ease-in-out ${isSidebarOpen ? 'md:ml-64' : 'ml-0'}`}>
+      <div className="flex flex-col flex-1 md:ml-64">
         {/* Header */}
         <header className="bg-brand-surface/80 backdrop-blur-sm sticky top-0 z-20 flex items-center justify-between p-4 border-b border-white/10 shrink-0 h-16">
            <div className="flex items-center gap-4">
-              <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 rounded-md hover:bg-white/10 transition-colors" aria-label="Toggle sidebar">
+              <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 rounded-md hover:bg-white/10 transition-colors md:hidden" aria-label="Toggle sidebar">
                   {isSidebarOpen ? (
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                   ) : (
