@@ -1,7 +1,6 @@
 
 export enum Tab {
   VIDEO_GENERATOR = 'video_generator',
-  BATCH_GENERATOR = 'batch_generator',
   IMAGE_GENERATOR = 'image_generator',
   PROMPT_GENERATOR = 'prompt_generator',
 }
@@ -13,6 +12,23 @@ export interface GenerationState {
   status: 'idle' | 'generating' | 'success' | 'error';
 }
 
+export interface VideoSegment {
+  id: string;
+  prompt: string;
+  startImage?: File;
+  endImage?: File;
+  videoUrl?: string;
+  status: 'idle' | 'generating' | 'success' | 'error';
+  aspectRatio: string;
+  mode: 'transition' | 'combine';
+}
+
+export interface PromptGeneratorTabProps {
+  onExportToBatch: (prompts: string[]) => void;
+  isSidebarOpen: boolean;
+}
+
+// FIX: Added missing BatchSegment type definition.
 export interface BatchSegment {
   id: string;
   prompt: string;
@@ -20,9 +36,4 @@ export interface BatchSegment {
   videoUrl?: string;
   status: 'idle' | 'generating' | 'success' | 'error';
   aspectRatio: string;
-}
-
-export interface PromptGeneratorTabProps {
-  onExportToBatch: (prompts: string[]) => void;
-  isSidebarOpen: boolean;
 }

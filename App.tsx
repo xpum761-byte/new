@@ -1,14 +1,13 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import { Footer } from './components/Footer';
 import { VideoGeneratorTab } from './components/VideoGeneratorTab';
-import { BatchGeneratorTab } from './components/BatchGeneratorTab';
 import { ImageGeneratorTab } from './components/ImageGeneratorTab';
 import { PromptGeneratorTab } from './components/PromptGeneratorTab';
 import { SettingsModal } from './components/SettingsModal';
 import { Tab } from './types';
-import type { GenerationState, BatchSegment } from './types';
+import type { GenerationState, VideoSegment } from './types';
 
 // Helper to convert File to Base64
 const fileToBase64 = (file: File): Promise<string> => {
@@ -39,11 +38,6 @@ const sidebarTabs: { id: Tab; label: string; icon: JSX.Element }[] = [
     id: Tab.VIDEO_GENERATOR,
     label: 'Video Generator',
     icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>,
-  },
-  {
-    id: Tab.BATCH_GENERATOR,
-    label: 'Batch Generator',
-    icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h7" /></svg>,
   },
   {
     id: Tab.IMAGE_GENERATOR,
@@ -114,17 +108,9 @@ const App: React.FC = () => {
     status: 'idle',
   });
   
-  // State for single video generator
-  const [singlePrompt, setSinglePrompt] = useState('');
-  const [singleStartImage, setSingleStartImage] = useState<File | undefined>();
-  const [singleEndImage, setSingleEndImage] = useState<File | undefined>();
-  const [singleVideoResult, setSingleVideoResult] = useState<string | null>(null);
-  const [singleVideoAspectRatio, setSingleVideoAspectRatio] = useState('16:9');
-
-
-  // State for batch video generator
-  const [segments, setSegments] = useState<BatchSegment[]>([
-    { id: crypto.randomUUID(), prompt: '', image: undefined, status: 'idle', aspectRatio: '16:9' },
+  // State for video generator segments
+  const [videoSegments, setVideoSegments] = useState<VideoSegment[]>([
+    { id: crypto.randomUUID(), prompt: '', startImage: undefined, endImage: undefined, videoUrl: undefined, status: 'idle', aspectRatio: '16:9', mode: 'transition' },
   ]);
 
   // State for image generator
@@ -132,22 +118,25 @@ const App: React.FC = () => {
   const [imageResults, setImageResults] = useState<string[]>([]);
   const [imageAspectRatio, setImageAspectRatio] = useState('1:1');
   const [numberOfImages, setNumberOfImages] = useState(1);
+  const [imageReference, setImageReference] = useState<File | undefined>();
   
   const handleExportToBatch = (prompts: string[]) => {
-    const newSegments: BatchSegment[] = prompts.map(prompt => ({
+    const newSegments: VideoSegment[] = prompts.map(prompt => ({
       id: crypto.randomUUID(),
       prompt,
-      image: undefined,
+      startImage: undefined,
+      endImage: undefined,
       videoUrl: undefined,
       status: 'idle',
       aspectRatio: '16:9',
+      mode: 'transition',
     }));
     
     if (newSegments.length > 0) {
-      setSegments(newSegments);
+      setVideoSegments(newSegments);
     }
     
-    setActiveTab(Tab.BATCH_GENERATOR);
+    setActiveTab(Tab.VIDEO_GENERATOR);
   };
 
   const handleGenerate = useCallback(async () => {
@@ -164,16 +153,13 @@ const App: React.FC = () => {
     }
 
     // Clean up old object URLs to prevent memory leaks
-    if (singleVideoResult) URL.revokeObjectURL(singleVideoResult);
-    segments.forEach(seg => {
+    videoSegments.forEach(seg => {
       if (seg.videoUrl) URL.revokeObjectURL(seg.videoUrl);
     });
 
     // Reset previous results based on active tab
     if (activeTab === Tab.VIDEO_GENERATOR) {
-      setSingleVideoResult(null);
-    } else if (activeTab === Tab.BATCH_GENERATOR) {
-      setSegments(s => s.map(seg => ({ ...seg, videoUrl: undefined, status: 'idle' })));
+        setVideoSegments(s => s.map(seg => ({ ...seg, videoUrl: undefined, status: 'idle' })));
     } else if (activeTab === Tab.IMAGE_GENERATOR) {
       setImageResults([]);
     }
@@ -189,30 +175,98 @@ const App: React.FC = () => {
       const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
       
       if (activeTab === Tab.IMAGE_GENERATOR) {
-        setGenerationState(prevState => ({ ...prevState, progress: 10, message: 'Generating images...' }));
-        const response = await ai.models.generateImages({
-          model: 'imagen-4.0-generate-001',
-          prompt: imagePrompt,
-          config: {
-            numberOfImages,
-            outputMimeType: 'image/jpeg',
-            aspectRatio: imageAspectRatio,
-          },
-        });
-        setGenerationState(prevState => ({ ...prevState, progress: 90, message: 'Finalizing images...' }));
-        const imageUrls = response.generatedImages.map(img => `data:image/jpeg;base64,${img.image.imageBytes}`);
-        setImageResults(imageUrls);
+        if (imageReference) {
+            // --- Image Editing Logic ---
+            setGenerationState(prevState => ({ ...prevState, progress: 10, message: 'Editing image...' }));
+            const imageBase64 = await fileToBase64(imageReference);
+    
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash-image-preview',
+                contents: {
+                    parts: [
+                        {
+                            inlineData: {
+                                data: imageBase64,
+                                mimeType: imageReference.type,
+                            },
+                        },
+                        {
+                            text: imagePrompt,
+                        },
+                    ],
+                },
+                config: {
+                    responseModalities: [Modality.IMAGE, Modality.TEXT],
+                },
+            });
+            
+            setGenerationState(prevState => ({ ...prevState, progress: 90, message: 'Finalizing edited image...' }));
+    
+            const imagePart = response.candidates?.[0]?.content?.parts.find(part => part.inlineData);
+            if (imagePart && imagePart.inlineData) {
+                const imageUrl = `data:${imagePart.inlineData.mimeType};base64,${imagePart.inlineData.data}`;
+                setImageResults([imageUrl]);
+            } else {
+                throw new Error("No image was returned from the editing model.");
+            }
+        } else {
+             // --- Image Generation Logic ---
+            setGenerationState(prevState => ({ ...prevState, progress: 10, message: 'Generating images...' }));
+            const response = await ai.models.generateImages({
+              model: 'imagen-4.0-generate-001',
+              prompt: imagePrompt,
+              config: {
+                numberOfImages,
+                outputMimeType: 'image/jpeg',
+                aspectRatio: imageAspectRatio,
+              },
+            });
+            setGenerationState(prevState => ({ ...prevState, progress: 90, message: 'Finalizing images...' }));
+            const imageUrls = response.generatedImages.map(img => `data:image/jpeg;base64,${img.image.imageBytes}`);
+            setImageResults(imageUrls);
+        }
 
       } else { // Handle video generation
-        const generateVideo = async (prompt: string, startImageFile?: File, endImageFile?: File, aspectRatio: string = '16:9') => {
+        const generateVideo = async (prompt: string, startImageFile?: File, endImageFile?: File, aspectRatio: string = '16:9', mode: 'transition' | 'combine' = 'transition') => {
             if (!prompt.trim() && !startImageFile) {
                 throw new Error("A prompt or a start image is required.");
             }
             
             let finalPrompt = prompt;
 
-            // If there's an end image, get its description and amend the prompt
-            if (endImageFile) {
+            if (mode === 'combine' && startImageFile && endImageFile) {
+              setGenerationState(prevState => ({ ...prevState, progress: 2, message: 'Analyzing reference images...' }));
+              
+              const startImageBase64 = await fileToBase64(startImageFile);
+              const startImageDescResponse = await ai.models.generateContent({
+                  model: 'gemini-2.5-flash',
+                  contents: { parts: [
+                      { text: "Describe this image's key subjects, style, and composition for a video AI." },
+                      { inlineData: { mimeType: startImageFile.type, data: startImageBase64 } }
+                  ] },
+              });
+              const startImageDesc = startImageDescResponse.text;
+
+              const endImageBase64 = await fileToBase64(endImageFile);
+              const endImageDescResponse = await ai.models.generateContent({
+                  model: 'gemini-2.5-flash',
+                  contents: { parts: [
+                      { text: "Describe this image's key subjects, style, and composition for a video AI." },
+                      { inlineData: { mimeType: endImageFile.type, data: endImageBase64 } }
+                  ] },
+              });
+              const endImageDesc = endImageDescResponse.text;
+
+              finalPrompt = `The user's creative goal is: "${prompt}".
+
+To achieve this, create a video that combines elements from two different concepts.
+Concept A is described as: "${startImageDesc}".
+Concept B is described as: "${endImageDesc}".
+
+The start image provided to you is for Concept A, use it as a strong visual reference for those elements.
+Your task is to generate a video where Concept A and Concept B interact as requested by the user's goal. For example, if the goal is "a cat playing with a dog", Concept A is the cat, and Concept B is the dog, the video should show them playing together, maintaining their respective appearances. This is a scene of combination, NOT a transition from A to B.`;
+
+            } else if (endImageFile) {
               setGenerationState(prevState => ({ ...prevState, progress: 2, message: 'Analyzing end image...' }));
               const endImageBase64 = await fileToBase64(endImageFile);
               const descriptionResponse = await ai.models.generateContent({
@@ -235,7 +289,7 @@ const App: React.FC = () => {
             } : undefined;
     
             let operation = await ai.models.generateVideos({
-                model: 'veo-3.0-fast-generate-001',
+                model: 'veo-2.0-generate-001',
                 prompt: finalPrompt,
                 image,
                 config: { 
@@ -275,26 +329,25 @@ const App: React.FC = () => {
         };
     
         if (activeTab === Tab.VIDEO_GENERATOR) {
-            setGenerationState(prevState => ({ ...prevState, progress: 5, message: 'Starting video generation...' }));
-            const videoUrl = await generateVideo(singlePrompt, singleStartImage, singleEndImage, singleVideoAspectRatio);
-            setSingleVideoResult(videoUrl);
-        } else if (activeTab === Tab.BATCH_GENERATOR) {
-            const segmentsToGenerate = segments.filter(s => s.prompt.trim());
+            const segmentsToGenerate = videoSegments.filter(s => s.prompt.trim() || s.startImage);
             if (segmentsToGenerate.length === 0) {
-                throw new Error("No prompts provided for batch generation.");
+                throw new Error("No prompts or start images provided for generation.");
             }
 
             let hasErrors = false;
             for (const [index, segment] of segmentsToGenerate.entries()) {
                 try {
-                    setGenerationState(prevState => ({ ...prevState, progress: (index / segmentsToGenerate.length) * 100, message: `Starting segment ${index + 1}...` }));
-                    setSegments(prev => prev.map(s => s.id === segment.id ? {...s, status: 'generating'} : s));
-                    const videoUrl = await generateVideo(segment.prompt, segment.image, undefined, segment.aspectRatio);
-                    setSegments(prev => prev.map(s => s.id === segment.id ? {...s, videoUrl, status: 'success'} : s));
+                    const segmentMessage = `Generating segment ${index + 1} of ${segmentsToGenerate.length}...`;
+                    setGenerationState(prevState => ({ ...prevState, progress: (index / segmentsToGenerate.length) * 100, message: segmentMessage }));
+                    setVideoSegments(prev => prev.map(s => s.id === segment.id ? {...s, status: 'generating'} : s));
+                    
+                    const videoUrl = await generateVideo(segment.prompt, segment.startImage, segment.endImage, segment.aspectRatio, segment.mode);
+                    
+                    setVideoSegments(prev => prev.map(s => s.id === segment.id ? {...s, videoUrl, status: 'success'} : s));
                 } catch (err) {
                     hasErrors = true;
                     console.error(`Error generating segment ${index + 1}:`, err);
-                    setSegments(prev => prev.map(s => s.id === segment.id ? {...s, status: 'error'} : s));
+                    setVideoSegments(prev => prev.map(s => s.id === segment.id ? {...s, status: 'error'} : s));
                 }
             }
             if (hasErrors) {
@@ -309,7 +362,7 @@ const App: React.FC = () => {
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
       setGenerationState({ isGenerating: false, progress: 100, message: errorMessage, status: 'error' });
     }
-  }, [activeTab, apiKey, singlePrompt, singleStartImage, singleEndImage, singleVideoAspectRatio, segments, imagePrompt, numberOfImages, imageAspectRatio]);
+  }, [activeTab, apiKey, videoSegments, imagePrompt, numberOfImages, imageAspectRatio, imageReference]);
 
   const getTabTitle = (tab: Tab) => {
     const tabInfo = sidebarTabs.find(t => t.id === tab);
@@ -318,9 +371,8 @@ const App: React.FC = () => {
   
   const getButtonText = () => {
     switch(activeTab) {
-      case Tab.VIDEO_GENERATOR: return 'Generate Video';
-      case Tab.BATCH_GENERATOR: return 'Generate All';
-      case Tab.IMAGE_GENERATOR: return 'Generate Images';
+      case Tab.VIDEO_GENERATOR: return 'Generate All Videos';
+      case Tab.IMAGE_GENERATOR: return imageReference ? 'Edit Image' : 'Generate Images';
       default: return 'Generate';
     }
   };
@@ -329,19 +381,9 @@ const App: React.FC = () => {
     switch (activeTab) {
       case Tab.VIDEO_GENERATOR:
         return <VideoGeneratorTab 
-                    prompt={singlePrompt}
-                    setPrompt={setSinglePrompt}
-                    startImage={singleStartImage}
-                    setStartImage={setSingleStartImage}
-                    endImage={singleEndImage}
-                    setEndImage={setSingleEndImage}
-                    videoUrl={singleVideoResult}
-                    isGenerating={generationState.isGenerating && activeTab === Tab.VIDEO_GENERATOR}
-                    aspectRatio={singleVideoAspectRatio}
-                    setAspectRatio={setSingleVideoAspectRatio}
+                    segments={videoSegments}
+                    setSegments={setVideoSegments}
                 />;
-      case Tab.BATCH_GENERATOR:
-        return <BatchGeneratorTab segments={segments} setSegments={setSegments} />;
       case Tab.IMAGE_GENERATOR:
         return <ImageGeneratorTab 
                     prompt={imagePrompt}
@@ -352,6 +394,8 @@ const App: React.FC = () => {
                     numberOfImages={numberOfImages}
                     setNumberOfImages={setNumberOfImages}
                     isGenerating={generationState.isGenerating && activeTab === Tab.IMAGE_GENERATOR}
+                    referenceImage={imageReference}
+                    setReferenceImage={setImageReference}
                 />;
       case Tab.PROMPT_GENERATOR:
         return <PromptGeneratorTab onExportToBatch={handleExportToBatch} isSidebarOpen={isSidebarOpen} />;
