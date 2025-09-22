@@ -1,4 +1,5 @@
 
+
 import React, { ChangeEvent, useRef } from 'react';
 import type { VideoSegment } from './types';
 import { ImageDropzone } from './components/ImageDropzone';
@@ -111,25 +112,18 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
                       ))}
                     </div>
                   </div>
-                   <div>
-                    <label className="block text-sm font-medium text-brand-text-muted mb-2">Generation Mode</label>
-                    <div className="flex gap-1 p-1 bg-brand-bg/50 border border-brand-primary/20 rounded-lg w-full">
-                        <button onClick={() => updateSegment(segment.id, { mode: 'transition' })} className={`w-1/2 py-2 text-sm rounded-md transition-colors ${segment.mode === 'transition' ? 'bg-brand-primary text-black shadow font-semibold' : 'text-brand-text-muted hover:bg-brand-secondary'}`}>Transition</button>
-                        <button onClick={() => updateSegment(segment.id, { mode: 'combine' })} className={`w-1/2 py-2 text-sm rounded-md transition-colors ${segment.mode === 'combine' ? 'bg-brand-primary text-black shadow font-semibold' : 'text-brand-text-muted hover:bg-brand-secondary'}`}>Combine</button>
-                    </div>
-                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <ImageDropzone 
                         imageFile={segment.startImage}
                         onFileChange={(file) => updateSegment(segment.id, { startImage: file })}
                         onFileRemove={() => updateSegment(segment.id, { startImage: undefined })}
-                        promptText={segment.mode === 'combine' ? 'Reference 1' : 'Start Image'}
+                        promptText='Start Image'
                     />
                      <ImageDropzone 
                         imageFile={segment.endImage}
                         onFileChange={(file) => updateSegment(segment.id, { endImage: file })}
                         onFileRemove={() => updateSegment(segment.id, { endImage: undefined })}
-                        promptText={segment.mode === 'combine' ? 'Reference 2' : 'End Image'}
+                        promptText='End Image'
                     />
                   </div>
                 </div>

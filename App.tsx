@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { Footer } from './components/Footer';
@@ -227,44 +228,31 @@ const App: React.FC = () => {
         }
 
       } else { // Handle video generation
-        const generateVideo = async (prompt: string, startImageFile?: File, endImageFile?: File, aspectRatio: string = '16:9', mode: 'transition' | 'combine' = 'transition') => {
+        const generateVideo = async (prompt: string, startImageFile?: File, endImageFile?: File, aspectRatio: string = '16:9') => {
             if (!prompt.trim() && !startImageFile) {
                 throw new Error("A prompt or a start image is required.");
             }
             
             let finalPrompt = prompt;
 
-            if (mode === 'combine' && startImageFile && endImageFile) {
-                setGenerationState(prevState => ({ ...prevState, progress: 2, message: 'Analyzing reference image...' }));
-                
-                const endImageBase64 = await fileToBase64(endImageFile);
-                const endImageDescResponse = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
-                    contents: { parts: [
-                        { text: "Briefly describe the key visual elements of this image for an AI video generator. Focus on subject, style, and color." },
-                        { inlineData: { mimeType: endImageFile.type, data: endImageBase64 } }
-                    ] },
-                });
-                const endImageDesc = endImageDescResponse.text;
-
-                finalPrompt = `**Primary Goal:** ${prompt || 'Combine the two concepts creatively.'}
-
-**Instruction:** Generate a video that merges the visual elements from the provided start image with the elements described below. The result should be a single, cohesive scene where both sets of elements interact or coexist. This is a combination, not a transition.
-
-**Elements to incorporate from the second concept:**
-${endImageDesc}`;
-
-            } else if (endImageFile) {
+            if (endImageFile) {
               setGenerationState(prevState => ({ ...prevState, progress: 2, message: 'Analyzing end image...' }));
               const endImageBase64 = await fileToBase64(endImageFile);
               const descriptionResponse = await ai.models.generateContent({
                   model: 'gemini-2.5-flash',
-                  contents: { parts: [
-                      { text: "Describe this image in detail for a video generation AI. Focus on objects, style, and composition." },
+                  contents: [{
+                    role: 'user',
+                    parts: [
+                      { text: "You are an AI assistant for a video generator. Your task is to describe an image so the video AI can recreate it. Describe this image in detail, focusing on subject, style, lighting, composition, and key objects." },
                       { inlineData: { mimeType: endImageFile.type, data: endImageBase64 } }
-                  ] },
+                    ]
+                  }],
               });
               const endImageDescription = descriptionResponse.text;
+              
+              if (!endImageDescription.trim()) {
+                  throw new Error("Analysis of the end image failed to produce a description.");
+              }
               
               const transitionInstruction = `The video should smoothly animate and transition into a new scene that perfectly matches this description: ${endImageDescription}`;
               
@@ -328,7 +316,7 @@ ${endImageDesc}`;
                     setGenerationState(prevState => ({ ...prevState, progress: (index / segmentsToGenerate.length) * 100, message: segmentMessage }));
                     setVideoSegments(prev => prev.map(s => s.id === segment.id ? {...s, status: 'generating'} : s));
                     
-                    const videoUrl = await generateVideo(segment.prompt, segment.startImage, segment.endImage, segment.aspectRatio, segment.mode);
+                    const videoUrl = await generateVideo(segment.prompt, segment.startImage, segment.endImage, segment.aspectRatio);
                     
                     setVideoSegments(prev => prev.map(s => s.id === segment.id ? {...s, videoUrl, status: 'success'} : s));
                 } catch (err) {

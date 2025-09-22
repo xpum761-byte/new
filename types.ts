@@ -1,4 +1,5 @@
 
+
 export enum Tab {
   VIDEO_GENERATOR = 'video_generator',
   IMAGE_GENERATOR = 'image_generator',
@@ -20,7 +21,7 @@ export interface VideoSegment {
   videoUrl?: string;
   status: 'idle' | 'generating' | 'success' | 'error';
   aspectRatio: string;
-  mode: 'transition' | 'combine';
+  mode: 'transition';
 }
 
 export interface PromptGeneratorTabProps {
