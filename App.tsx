@@ -289,7 +289,7 @@ Your task is to generate a video where Concept A and Concept B interact as reque
             } : undefined;
     
             let operation = await ai.models.generateVideos({
-                model: 'veo-3.0-fast-generate-001',
+                model: 'veo-2.0-generate-001',
                 prompt: finalPrompt,
                 image,
                 config: { 
