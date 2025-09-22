@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, ChangeEvent, useEffect, useCallback } from 'react';
 import { 
   PromptGeneratorTabProps,
@@ -96,7 +97,6 @@ const lightings = ["Siang Hari (Cerah)", "Malam Hari", "Mendung", "Golden Hour",
 
 export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ 
   onExportToBatch, 
-  isSidebarOpen,
   characters,
   setCharacters,
   sceneSettings,
@@ -393,9 +393,9 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({
 
         {/* --- RIGHT COLUMN: OUTPUT CANVAS --- */}
         <div className="lg:col-span-2 relative">
-            <div className="lg:sticky lg:top-24 h-fit">
+            <div className="lg:sticky lg:top-8 h-fit">
                 <h2 className="text-xl font-bold text-brand-text mb-4">Prompt Canvas</h2>
-                <div className="bg-brand-surface rounded-lg shadow-inner h-[70vh] lg:h-[calc(100vh-13rem)] border border-brand-primary/20">
+                <div className="bg-brand-surface rounded-lg shadow-inner h-[70vh] lg:h-[calc(100vh-18rem)] border border-brand-primary/20">
                     <pre className="whitespace-pre-wrap break-words text-sm p-4 overflow-y-auto text-brand-text-muted h-full w-full rounded-lg">
                         {canvasOutput}
                     </pre>
@@ -405,8 +405,8 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({
 
 
         {/* --- FOOTER ACTIONS --- */}
-        <div className={`fixed bottom-0 left-0 right-0 bg-brand-surface/80 backdrop-blur-sm border-t border-brand-primary/20 p-4 z-10 transition-all duration-300 ${isSidebarOpen ? 'md:left-64' : 'md:left-20'}`}>
-            <div className="container mx-auto flex flex-col md:flex-row justify-end items-center gap-6">
+        <div className="fixed bottom-0 left-0 right-0 bg-brand-surface/80 backdrop-blur-sm border-t border-brand-primary/20 p-4 z-10">
+            <div className="container mx-auto flex flex-col md:flex-row justify-end items-center gap-6 px-4">
                 <button onClick={handleCopyCanvas} className="w-full md:w-auto px-6 py-2 bg-brand-secondary text-brand-text-muted font-semibold rounded-md hover:bg-brand-surface transition-colors">
                     {copyButtonText}
                 </button>
