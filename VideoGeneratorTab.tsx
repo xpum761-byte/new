@@ -1,6 +1,5 @@
 
 
-
 import React, { ChangeEvent, useRef } from 'react';
 import type { VideoSegment } from './types';
 import { ImageDropzone } from './ImageDropzone';
@@ -70,7 +69,7 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
         </button>
       </div>
       {segments.length > 0 ? (
-        <div className="flex-grow overflow-y-auto space-y-4 pr-2">
+        <div className="flex-grow space-y-4 pr-2 pb-28">
           {segments.map((segment, index) => (
             <div
               key={segment.id}

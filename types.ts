@@ -73,7 +73,6 @@ export interface ClipSegment {
 
 export interface PromptGeneratorTabProps {
   onExportToBatch: (prompts: string[]) => void;
-  isSidebarOpen: boolean;
   characters: Character[];
   setCharacters: React.Dispatch<React.SetStateAction<Character[]>>;
   sceneSettings: SceneSettings;
