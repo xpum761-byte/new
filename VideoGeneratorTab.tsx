@@ -26,10 +26,10 @@ const StatusIcon: React.FC<{ status: VideoSegment['status'] }> = ({ status }) =>
 export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, setSegments }) => {
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
-  const videoAspectRatios = ['16:9', '9:16', '4:3'];
+  const videoAspectRatios = ['16:9', '9:16', '4:3', '1:1', '4:5'];
 
   const addSegment = () => {
-    setSegments([...segments, { id: crypto.randomUUID(), prompt: '', startImage: undefined, endImage: undefined, videoUrl: undefined, status: 'idle', aspectRatio: '16:9', mode: 'transition' }]);
+    setSegments([...segments, { id: crypto.randomUUID(), prompt: '', startImage: undefined, videoUrl: undefined, status: 'idle', aspectRatio: '16:9', mode: 'transition' }]);
   };
 
   const removeSegment = (id: string) => {
@@ -112,20 +112,12 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
                       ))}
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <ImageDropzone 
-                        imageFile={segment.startImage}
-                        onFileChange={(file) => updateSegment(segment.id, { startImage: file })}
-                        onFileRemove={() => updateSegment(segment.id, { startImage: undefined })}
-                        promptText='Start Image'
-                    />
-                     <ImageDropzone 
-                        imageFile={segment.endImage}
-                        onFileChange={(file) => updateSegment(segment.id, { endImage: file })}
-                        onFileRemove={() => updateSegment(segment.id, { endImage: undefined })}
-                        promptText='End Image'
-                    />
-                  </div>
+                  <ImageDropzone 
+                      imageFile={segment.startImage}
+                      onFileChange={(file) => updateSegment(segment.id, { startImage: file })}
+                      onFileRemove={() => updateSegment(segment.id, { startImage: undefined })}
+                      promptText='Start Image (Optional)'
+                  />
                 </div>
 
                 {/* Right Side: Output */}

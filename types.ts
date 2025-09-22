@@ -17,7 +17,6 @@ export interface VideoSegment {
   id: string;
   prompt: string;
   startImage?: File;
-  endImage?: File;
   videoUrl?: string;
   status: 'idle' | 'generating' | 'success' | 'error';
   aspectRatio: string;

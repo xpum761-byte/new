@@ -111,7 +111,7 @@ const App: React.FC = () => {
   
   // State for video generator segments
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>([
-    { id: crypto.randomUUID(), prompt: '', startImage: undefined, endImage: undefined, videoUrl: undefined, status: 'idle', aspectRatio: '16:9', mode: 'transition' },
+    { id: crypto.randomUUID(), prompt: '', startImage: undefined, videoUrl: undefined, status: 'idle', aspectRatio: '16:9', mode: 'transition' },
   ]);
 
   // State for image generator
@@ -126,7 +126,6 @@ const App: React.FC = () => {
       id: crypto.randomUUID(),
       prompt,
       startImage: undefined,
-      endImage: undefined,
       videoUrl: undefined,
       status: 'idle',
       aspectRatio: '16:9',
@@ -228,36 +227,12 @@ const App: React.FC = () => {
         }
 
       } else { // Handle video generation
-        const generateVideo = async (prompt: string, startImageFile?: File, endImageFile?: File, aspectRatio: string = '16:9') => {
+        const generateVideo = async (prompt: string, startImageFile?: File, aspectRatio?: string) => {
             if (!prompt.trim() && !startImageFile) {
                 throw new Error("A prompt or a start image is required.");
             }
             
-            let finalPrompt = prompt;
-
-            if (endImageFile) {
-              setGenerationState(prevState => ({ ...prevState, progress: 2, message: 'Analyzing end image...' }));
-              const endImageBase64 = await fileToBase64(endImageFile);
-              const descriptionResponse = await ai.models.generateContent({
-                  model: 'gemini-2.5-flash',
-                  contents: [{
-                    role: 'user',
-                    parts: [
-                      { text: "You are an AI assistant for a video generator. Your task is to describe an image so the video AI can recreate it. Describe this image in detail, focusing on subject, style, lighting, composition, and key objects." },
-                      { inlineData: { mimeType: endImageFile.type, data: endImageBase64 } }
-                    ]
-                  }],
-              });
-              const endImageDescription = descriptionResponse.text;
-              
-              if (!endImageDescription.trim()) {
-                  throw new Error("Analysis of the end image failed to produce a description.");
-              }
-              
-              const transitionInstruction = `The video should smoothly animate and transition into a new scene that perfectly matches this description: ${endImageDescription}`;
-              
-              finalPrompt = prompt.trim() ? `${prompt}. ${transitionInstruction}` : transitionInstruction;
-            }
+            const finalPrompt = prompt;
             
             const image = startImageFile ? {
                 imageBytes: await fileToBase64(startImageFile),
@@ -265,11 +240,12 @@ const App: React.FC = () => {
             } : undefined;
     
             let operation = await ai.models.generateVideos({
-                model: 'veo-3.0-fast-generate-001',
+                model: 'veo-2.0-generate-001',
                 prompt: finalPrompt,
                 image,
                 config: { 
                   numberOfVideos: 1,
+                  aspectRatio,
                 }
             });
     
@@ -316,7 +292,7 @@ const App: React.FC = () => {
                     setGenerationState(prevState => ({ ...prevState, progress: (index / segmentsToGenerate.length) * 100, message: segmentMessage }));
                     setVideoSegments(prev => prev.map(s => s.id === segment.id ? {...s, status: 'generating'} : s));
                     
-                    const videoUrl = await generateVideo(segment.prompt, segment.startImage, segment.endImage, segment.aspectRatio);
+                    const videoUrl = await generateVideo(segment.prompt, segment.startImage, segment.aspectRatio);
                     
                     setVideoSegments(prev => prev.map(s => s.id === segment.id ? {...s, videoUrl, status: 'success'} : s));
                 } catch (err) {
@@ -337,102 +313,32 @@ const App: React.FC = () => {
       const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
       setGenerationState({ isGenerating: false, progress: 100, message: errorMessage, status: 'error' });
     }
-  }, [activeTab, apiKey, videoSegments, imagePrompt, numberOfImages, imageAspectRatio, imageReference]);
+  }, [activeTab, apiKey, imagePrompt, numberOfImages, imageAspectRatio, imageReference, videoSegments]);
 
-  const getTabTitle = (tab: Tab) => {
-    const tabInfo = sidebarTabs.find(t => t.id === tab);
-    return tabInfo ? tabInfo.label : 'Synth V';
-  };
-  
-  const getButtonText = () => {
-    switch(activeTab) {
-      case Tab.VIDEO_GENERATOR: return 'Generate All Videos';
-      case Tab.IMAGE_GENERATOR: return imageReference ? 'Edit Image' : 'Generate Images';
+  const buttonText = () => {
+    switch (activeTab) {
+      case Tab.VIDEO_GENERATOR: return 'Generate Video';
+      case Tab.IMAGE_GENERATOR: return 'Generate Image';
       default: return 'Generate';
     }
-  };
-
-  const renderActiveTab = () => {
-    switch (activeTab) {
-      case Tab.VIDEO_GENERATOR:
-        return <VideoGeneratorTab 
-                    segments={videoSegments}
-                    setSegments={setVideoSegments}
-                />;
-      case Tab.IMAGE_GENERATOR:
-        return <ImageGeneratorTab 
-                    prompt={imagePrompt}
-                    setPrompt={setImagePrompt}
-                    images={imageResults}
-                    aspectRatio={imageAspectRatio}
-                    setAspectRatio={setImageAspectRatio}
-                    numberOfImages={numberOfImages}
-                    setNumberOfImages={setNumberOfImages}
-                    isGenerating={generationState.isGenerating && activeTab === Tab.IMAGE_GENERATOR}
-                    referenceImage={imageReference}
-                    setReferenceImage={setImageReference}
-                />;
-      case Tab.PROMPT_GENERATOR:
-        return <PromptGeneratorTab onExportToBatch={handleExportToBatch} isSidebarOpen={isSidebarOpen} />;
-      default:
-        return null;
-    }
-  };
-  
-  const showFooter = activeTab !== Tab.PROMPT_GENERATOR;
+  }
 
   return (
     <div className="flex h-screen bg-brand-bg text-brand-text font-sans">
-      <div className={`fixed inset-y-0 left-0 z-30 transform ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out bg-brand-surface md:static md:transform-none`}>
-         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onSettingsClick={() => setSettingsOpen(true)} />
-      </div>
-      
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 z-20 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        ></div>
-      )}
-
-      {/* Main content */}
-      <div className="flex flex-col flex-1 min-w-0">
-        {/* Header */}
-        <header className="bg-brand-surface/80 backdrop-blur-sm sticky top-0 z-20 flex items-center justify-between p-4 border-b border-brand-primary/20 shrink-0 h-16">
-           <div className="flex items-center gap-4">
-              <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 rounded-md hover:bg-brand-secondary/50 transition-colors md:hidden" aria-label="Toggle sidebar">
-                  {isSidebarOpen ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                  ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h7" /></svg>
-                  )}
-              </button>
-              <h1 className="text-xl font-semibold">{getTabTitle(activeTab)}</h1>
-           </div>
-           
-           <h1 className="text-2xl font-display font-bold text-brand-text tracking-wider">
-              Synth <span className="text-brand-primary">V</span>
-           </h1>
-        </header>
-
-        <main className="flex-1 overflow-y-auto p-6">
-          {renderActiveTab()}
-        </main>
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onSettingsClick={() => setSettingsOpen(true)} />
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8">
+          {activeTab === Tab.VIDEO_GENERATOR && <VideoGeneratorTab segments={videoSegments} setSegments={setVideoSegments} />}
+          {activeTab === Tab.IMAGE_GENERATOR && <ImageGeneratorTab prompt={imagePrompt} setPrompt={setImagePrompt} images={imageResults} aspectRatio={imageAspectRatio} setAspectRatio={setImageAspectRatio} numberOfImages={numberOfImages} setNumberOfImages={setNumberOfImages} isGenerating={generationState.isGenerating} referenceImage={imageReference} setReferenceImage={setImageReference} />}
+          {activeTab === Tab.PROMPT_GENERATOR && <PromptGeneratorTab onExportToBatch={handleExportToBatch} isSidebarOpen={isSidebarOpen} />}
+        </div>
         
-        {showFooter && (
-            <Footer
-                onGenerateClick={handleGenerate}
-                generationState={generationState}
-                buttonText={getButtonText()}
-            />
+        {/* Footer is not shown on prompt generator tab as it has its own fixed footer */}
+        {activeTab !== Tab.PROMPT_GENERATOR && (
+            <Footer onGenerateClick={handleGenerate} generationState={generationState} buttonText={buttonText()} />
         )}
-      </div>
-
-      <SettingsModal 
-        isOpen={isSettingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        onSave={handleSaveSettings}
-        currentApiKey={apiKey}
-      />
+      </main>
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setSettingsOpen(false)} onSave={handleSaveSettings} currentApiKey={apiKey} />
     </div>
   );
 };
