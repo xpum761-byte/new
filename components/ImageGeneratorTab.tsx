@@ -1,5 +1,6 @@
 
 import React, { ChangeEvent } from 'react';
+import { ImageDropzone } from './ImageDropzone';
 
 interface ImageGeneratorTabProps {
   prompt: string;
@@ -10,12 +11,14 @@ interface ImageGeneratorTabProps {
   numberOfImages: number;
   setNumberOfImages: (num: number) => void;
   isGenerating: boolean;
+  referenceImage: File | undefined;
+  setReferenceImage: (file: File | undefined) => void;
 }
 
 // FIX: Updated to only include supported aspect ratios for imagen-4.0-generate-001
 const aspectRatios = ['1:1', '16:9', '9:16', '4:3', '3:4'];
 
-export const ImageGeneratorTab: React.FC<ImageGeneratorTabProps> = ({ prompt, setPrompt, images, aspectRatio, setAspectRatio, numberOfImages, setNumberOfImages, isGenerating }) => {
+export const ImageGeneratorTab: React.FC<ImageGeneratorTabProps> = ({ prompt, setPrompt, images, aspectRatio, setAspectRatio, numberOfImages, setNumberOfImages, isGenerating, referenceImage, setReferenceImage }) => {
   const handleDownload = (url: string, index: number) => {
     const link = document.createElement('a');
     link.href = url;
@@ -27,8 +30,8 @@ export const ImageGeneratorTab: React.FC<ImageGeneratorTabProps> = ({ prompt, se
   
   return (
     <div className="flex flex-col h-full gap-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-1">
            <label htmlFor="image-prompt" className="block text-sm font-medium text-brand-text-muted mb-2">Prompt</label>
            <textarea
               id="image-prompt"
@@ -39,37 +42,55 @@ export const ImageGeneratorTab: React.FC<ImageGeneratorTabProps> = ({ prompt, se
               className="w-full bg-brand-surface border border-white/10 rounded-md p-3 text-brand-text focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
             />
         </div>
-        <div className='flex flex-col gap-4'>
-            <div>
-                 <label className="block text-sm font-medium text-brand-text-muted mb-2">Aspect Ratio</label>
-                 <div className="flex gap-2 flex-wrap">
-                    {aspectRatios.map(ratio => (
-                        <button key={ratio} onClick={() => setAspectRatio(ratio)} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${aspectRatio === ratio ? 'bg-brand-primary text-white' : 'bg-brand-surface hover:bg-brand-surface/50'}`}>
-                            {ratio}
-                        </button>
-                    ))}
-                 </div>
-            </div>
-             <div>
-                 <label htmlFor="num-images" className="block text-sm font-medium text-brand-text-muted mb-2">Number of Images ({numberOfImages})</label>
-                 <input 
-                    type="range"
-                    id="num-images"
-                    min="1"
-                    max="4"
-                    step="1"
-                    value={numberOfImages}
-                    onChange={e => setNumberOfImages(parseInt(e.target.value, 10))}
-                    className="w-full h-2 bg-brand-surface rounded-lg appearance-none cursor-pointer accent-brand-primary"
-                 />
-            </div>
+        <div className="lg:col-span-1">
+             <label className="block text-sm font-medium text-brand-text-muted mb-2">Reference Image (for editing)</label>
+             <ImageDropzone
+                imageFile={referenceImage}
+                onFileChange={setReferenceImage}
+                onFileRemove={() => setReferenceImage(undefined)}
+                promptText="Drop image here to edit"
+                containerClassName="h-full min-h-[116px]"
+             />
+        </div>
+        <div className='flex flex-col gap-4 lg:col-span-1'>
+            {!referenceImage ? (
+                <>
+                    <div>
+                         <label className="block text-sm font-medium text-brand-text-muted mb-2">Aspect Ratio</label>
+                         <div className="flex gap-2 flex-wrap">
+                            {aspectRatios.map(ratio => (
+                                <button key={ratio} onClick={() => setAspectRatio(ratio)} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${aspectRatio === ratio ? 'bg-brand-primary text-white' : 'bg-brand-surface hover:bg-brand-surface/50'}`}>
+                                    {ratio}
+                                </button>
+                            ))}
+                         </div>
+                    </div>
+                     <div>
+                         <label htmlFor="num-images" className="block text-sm font-medium text-brand-text-muted mb-2">Number of Images ({numberOfImages})</label>
+                         <input 
+                            type="range"
+                            id="num-images"
+                            min="1"
+                            max="4"
+                            step="1"
+                            value={numberOfImages}
+                            onChange={e => setNumberOfImages(parseInt(e.target.value, 10))}
+                            className="w-full h-2 bg-brand-surface rounded-lg appearance-none cursor-pointer accent-brand-primary"
+                         />
+                    </div>
+                </>
+            ) : (
+                <div className="bg-brand-surface border border-dashed border-white/10 rounded-lg p-4 h-full flex items-center justify-center">
+                    <p className="text-sm text-center text-brand-text-muted">Aspect ratio & image count are set by the reference image in edit mode.</p>
+                </div>
+            )}
         </div>
       </div>
 
       <div className="flex-grow bg-brand-surface rounded-lg p-4">
         {isGenerating ? (
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: numberOfImages }).map((_, i) => (
+            {Array.from({ length: referenceImage ? 1: numberOfImages }).map((_, i) => (
               <div key={i} className="bg-white/5 animate-pulse rounded-md" style={{ aspectRatio: aspectRatio.replace(':', ' / ') }}></div>
             ))}
           </div>
