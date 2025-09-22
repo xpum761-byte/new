@@ -1,7 +1,7 @@
 
 import React, { ChangeEvent, useRef } from 'react';
-import type { VideoSegment } from '../types';
-import { ImageDropzone } from './ImageDropzone';
+import type { VideoSegment } from './types';
+import { ImageDropzone } from './components/ImageDropzone';
 
 interface VideoGeneratorTabProps {
   segments: VideoSegment[];
@@ -63,7 +63,7 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
     <div className="flex flex-col h-full">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold text-brand-text">Video Segments</h2>
-        <button onClick={addSegment} className="px-4 py-2 bg-brand-accent text-white font-semibold rounded-md hover:bg-sky-400 transition-colors">
+        <button onClick={addSegment} className="px-4 py-2 bg-brand-accent text-black font-bold rounded-md hover:opacity-90 transition-colors">
           Add Segment
         </button>
       </div>
@@ -72,7 +72,7 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
           {segments.map((segment, index) => (
             <div
               key={segment.id}
-              className="bg-brand-surface p-4 rounded-lg flex flex-col gap-4"
+              className="bg-brand-surface p-4 rounded-lg flex flex-col gap-4 border border-brand-primary/10"
               draggable
               onDragStart={() => dragItem.current = index}
               onDragEnter={() => dragOverItem.current = index}
@@ -85,7 +85,7 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
                   <span className="font-mono text-lg text-brand-text">Segment {index + 1}</span>
                   <StatusIcon status={segment.status} />
                   <div className="flex-grow"></div>
-                  <button onClick={() => removeSegment(segment.id)} className="text-brand-text-muted hover:text-red-500 transition-colors p-1 rounded-full">
+                  <button onClick={() => removeSegment(segment.id)} className="text-brand-text-muted hover:text-brand-primary transition-colors p-1 rounded-full">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                   </button>
               </div>
@@ -99,13 +99,13 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
                       onChange={(e: ChangeEvent<HTMLTextAreaElement>) => updateSegment(segment.id, { prompt: e.target.value })}
                       placeholder="e.g., A majestic lion roaring on a rocky outcrop at sunset..."
                       rows={4}
-                      className="w-full bg-brand-bg/50 border border-white/10 rounded-md p-3 text-brand-text focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
+                      className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-3 text-brand-text focus:ring-2 focus:ring-brand-accent focus:outline-none transition"
                   />
                   <div>
                     <label className="block text-sm font-medium text-brand-text-muted mb-2">Aspect Ratio</label>
                     <div className="flex gap-2 flex-wrap">
                       {videoAspectRatios.map(ratio => (
-                          <button key={ratio} onClick={() => updateSegment(segment.id, { aspectRatio: ratio })} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${segment.aspectRatio === ratio ? 'bg-brand-primary text-white' : 'bg-brand-bg hover:bg-white/10'}`}>
+                          <button key={ratio} onClick={() => updateSegment(segment.id, { aspectRatio: ratio })} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${segment.aspectRatio === ratio ? 'bg-brand-primary text-black font-semibold' : 'bg-brand-bg hover:bg-brand-secondary'}`}>
                               {ratio}
                           </button>
                       ))}
@@ -113,9 +113,9 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
                   </div>
                    <div>
                     <label className="block text-sm font-medium text-brand-text-muted mb-2">Generation Mode</label>
-                    <div className="flex gap-1 p-1 bg-brand-bg/50 border border-white/10 rounded-lg w-full">
-                        <button onClick={() => updateSegment(segment.id, { mode: 'transition' })} className={`w-1/2 py-2 text-sm rounded-md transition-colors ${segment.mode === 'transition' ? 'bg-brand-primary text-white shadow' : 'text-brand-text-muted hover:bg-white/10'}`}>Transition</button>
-                        <button onClick={() => updateSegment(segment.id, { mode: 'combine' })} className={`w-1/2 py-2 text-sm rounded-md transition-colors ${segment.mode === 'combine' ? 'bg-brand-primary text-white shadow' : 'text-brand-text-muted hover:bg-white/10'}`}>Combine</button>
+                    <div className="flex gap-1 p-1 bg-brand-bg/50 border border-brand-primary/20 rounded-lg w-full">
+                        <button onClick={() => updateSegment(segment.id, { mode: 'transition' })} className={`w-1/2 py-2 text-sm rounded-md transition-colors ${segment.mode === 'transition' ? 'bg-brand-primary text-black shadow font-semibold' : 'text-brand-text-muted hover:bg-brand-secondary'}`}>Transition</button>
+                        <button onClick={() => updateSegment(segment.id, { mode: 'combine' })} className={`w-1/2 py-2 text-sm rounded-md transition-colors ${segment.mode === 'combine' ? 'bg-brand-primary text-black shadow font-semibold' : 'text-brand-text-muted hover:bg-brand-secondary'}`}>Combine</button>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -135,13 +135,13 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
                 </div>
 
                 {/* Right Side: Output */}
-                <div className="bg-brand-bg/50 rounded-lg flex items-center justify-center min-h-[250px] relative">
+                <div className="bg-brand-bg/50 rounded-lg flex items-center justify-center min-h-[250px] relative border border-brand-primary/10">
                     {segment.videoUrl ? (
                         <>
                          <video src={segment.videoUrl} controls loop className="w-full h-full object-contain rounded-lg" />
                          <button
                             onClick={() => handleDownload(segment.videoUrl!, segment.prompt)}
-                            className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1.5 hover:bg-brand-primary transition-colors"
+                            className="absolute top-2 right-2 bg-brand-surface/80 text-white rounded-full p-1.5 hover:bg-brand-primary hover:text-black transition-colors"
                             aria-label="Download video segment"
                          >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
@@ -160,10 +160,10 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
           ))}
         </div>
       ) : (
-        <div className="flex-grow flex items-center justify-center text-brand-text-muted border-2 border-dashed border-white/10 rounded-lg">
+        <div className="flex-grow flex items-center justify-center text-brand-text-muted border-2 border-dashed border-brand-primary/20 rounded-lg">
           <div className="text-center">
-             <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
-            <p className="mt-2">Click "Add Segment" to start building your video.</p>
+             <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
+            <p className="mt-4 text-base">Click "Add Segment" to start building your video.</p>
           </div>
         </div>
       )}

@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { Footer } from './components/Footer';
-import { VideoGeneratorTab } from './components/VideoGeneratorTab';
+import { VideoGeneratorTab } from './VideoGeneratorTab';
 import { ImageGeneratorTab } from './components/ImageGeneratorTab';
 import { PromptGeneratorTab } from './components/PromptGeneratorTab';
 import { SettingsModal } from './components/SettingsModal';
@@ -53,7 +53,7 @@ const sidebarTabs: { id: Tab; label: string; icon: JSX.Element }[] = [
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onSettingsClick }) => {
   return (
-    <aside className="w-64 bg-brand-surface flex flex-col p-4 border-r border-white/10 shrink-0 h-full">
+    <aside className="w-64 bg-brand-surface flex flex-col p-4 border-r border-brand-primary/20 shrink-0 h-full">
       <nav className="flex flex-col space-y-2 mt-8">
         {sidebarTabs.map((tab) => (
           <button
@@ -62,7 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onSettingsCl
             className={`flex items-center w-full text-left px-3 py-2.5 rounded-md text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent ${
               activeTab === tab.id
                 ? 'bg-brand-primary/20 text-brand-primary'
-                : 'text-brand-text-muted hover:bg-white/10 hover:text-brand-text'
+                : 'text-brand-text-muted hover:bg-brand-secondary/50 hover:text-brand-text'
             }`}
             aria-current={activeTab === tab.id ? 'page' : undefined}
           >
@@ -72,7 +72,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onSettingsCl
         ))}
       </nav>
       <div className="mt-auto">
-        <button onClick={onSettingsClick} className="flex items-center w-full text-left px-3 py-2.5 rounded-md text-sm font-medium text-brand-text-muted hover:bg-white/10 hover:text-brand-text transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent" aria-label="Open settings">
+        <button onClick={onSettingsClick} className="flex items-center w-full text-left px-3 py-2.5 rounded-md text-sm font-medium text-brand-text-muted hover:bg-brand-secondary/50 hover:text-brand-text transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-brand-accent" aria-label="Open settings">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -235,36 +235,24 @@ const App: React.FC = () => {
             let finalPrompt = prompt;
 
             if (mode === 'combine' && startImageFile && endImageFile) {
-              setGenerationState(prevState => ({ ...prevState, progress: 2, message: 'Analyzing reference images...' }));
-              
-              const startImageBase64 = await fileToBase64(startImageFile);
-              const startImageDescResponse = await ai.models.generateContent({
-                  model: 'gemini-2.5-flash',
-                  contents: { parts: [
-                      { text: "Describe this image's key subjects, style, and composition for a video AI." },
-                      { inlineData: { mimeType: startImageFile.type, data: startImageBase64 } }
-                  ] },
-              });
-              const startImageDesc = startImageDescResponse.text;
+                setGenerationState(prevState => ({ ...prevState, progress: 2, message: 'Analyzing reference image...' }));
+                
+                const endImageBase64 = await fileToBase64(endImageFile);
+                const endImageDescResponse = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash',
+                    contents: { parts: [
+                        { text: "Briefly describe the key visual elements of this image for an AI video generator. Focus on subject, style, and color." },
+                        { inlineData: { mimeType: endImageFile.type, data: endImageBase64 } }
+                    ] },
+                });
+                const endImageDesc = endImageDescResponse.text;
 
-              const endImageBase64 = await fileToBase64(endImageFile);
-              const endImageDescResponse = await ai.models.generateContent({
-                  model: 'gemini-2.5-flash',
-                  contents: { parts: [
-                      { text: "Describe this image's key subjects, style, and composition for a video AI." },
-                      { inlineData: { mimeType: endImageFile.type, data: endImageBase64 } }
-                  ] },
-              });
-              const endImageDesc = endImageDescResponse.text;
+                finalPrompt = `**Primary Goal:** ${prompt || 'Combine the two concepts creatively.'}
 
-              finalPrompt = `The user's creative goal is: "${prompt}".
+**Instruction:** Generate a video that merges the visual elements from the provided start image with the elements described below. The result should be a single, cohesive scene where both sets of elements interact or coexist. This is a combination, not a transition.
 
-To achieve this, create a video that combines elements from two different concepts.
-Concept A is described as: "${startImageDesc}".
-Concept B is described as: "${endImageDesc}".
-
-The start image provided to you is for Concept A, use it as a strong visual reference for those elements.
-Your task is to generate a video where Concept A and Concept B interact as requested by the user's goal. For example, if the goal is "a cat playing with a dog", Concept A is the cat, and Concept B is the dog, the video should show them playing together, maintaining their respective appearances. This is a scene of combination, NOT a transition from A to B.`;
+**Elements to incorporate from the second concept:**
+${endImageDesc}`;
 
             } else if (endImageFile) {
               setGenerationState(prevState => ({ ...prevState, progress: 2, message: 'Analyzing end image...' }));
@@ -421,9 +409,9 @@ Your task is to generate a video where Concept A and Concept B interact as reque
       {/* Main content */}
       <div className="flex flex-col flex-1 min-w-0">
         {/* Header */}
-        <header className="bg-brand-surface/80 backdrop-blur-sm sticky top-0 z-20 flex items-center justify-between p-4 border-b border-white/10 shrink-0 h-16">
+        <header className="bg-brand-surface/80 backdrop-blur-sm sticky top-0 z-20 flex items-center justify-between p-4 border-b border-brand-primary/20 shrink-0 h-16">
            <div className="flex items-center gap-4">
-              <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 rounded-md hover:bg-white/10 transition-colors md:hidden" aria-label="Toggle sidebar">
+              <button onClick={() => setSidebarOpen(!isSidebarOpen)} className="p-2 rounded-md hover:bg-brand-secondary/50 transition-colors md:hidden" aria-label="Toggle sidebar">
                   {isSidebarOpen ? (
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                   ) : (
