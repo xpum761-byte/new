@@ -56,10 +56,10 @@ const Accordion: React.FC<{ title: React.ReactNode; children: React.ReactNode; d
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <div className="border border-white/10 rounded-lg bg-brand-surface overflow-hidden transition-all duration-300">
+    <div className="border border-brand-primary/20 rounded-lg bg-brand-surface overflow-hidden transition-all duration-300">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex justify-between items-center p-4 text-left font-semibold text-brand-text hover:bg-white/5"
+        className="w-full flex justify-between items-center p-4 text-left font-semibold text-brand-text hover:bg-brand-secondary/50"
         aria-expanded={isOpen}
       >
         <div className="w-full">{title}</div>
@@ -74,7 +74,7 @@ const Accordion: React.FC<{ title: React.ReactNode; children: React.ReactNode; d
         </svg>
       </button>
       {isOpen && (
-        <div className="p-4 border-t border-white/10 bg-brand-bg/20">
+        <div className="p-4 border-t border-brand-primary/20 bg-brand-bg/20">
           {children}
         </div>
       )}
@@ -294,21 +294,21 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExport
   const renderInputField = (label: string, value: string, onChange: (e: ChangeEvent<HTMLInputElement>) => void, placeholder = '', type='text') => (
     <div>
         <label className="block text-sm font-medium text-brand-text-muted mb-1">{label}</label>
-        <input type={type} value={value} onChange={onChange} placeholder={placeholder} className="w-full bg-brand-bg/50 border border-white/10 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-primary focus:outline-none" />
+        <input type={type} value={value} onChange={onChange} placeholder={placeholder} className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none" />
     </div>
   );
   
   const renderTextareaField = (label: string, value: string, onChange: (e: ChangeEvent<HTMLTextAreaElement>) => void, placeholder = '') => (
     <div>
         <label className="block text-sm font-medium text-brand-text-muted mb-1">{label}</label>
-        <textarea value={value} onChange={onChange} placeholder={placeholder} rows={2} className="w-full bg-brand-bg/50 border border-white/10 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-primary focus:outline-none resize-y" />
+        <textarea value={value} onChange={onChange} placeholder={placeholder} rows={2} className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none resize-y" />
     </div>
   );
 
   const renderSelectField = (label: string, value: string, onChange: (e: ChangeEvent<HTMLSelectElement>) => void, options: string[]) => (
     <div>
         <label className="block text-sm font-medium text-brand-text-muted mb-1">{label}</label>
-        <select value={value} onChange={onChange} className="w-full bg-brand-bg/50 border border-white/10 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-primary focus:outline-none">
+        <select value={value} onChange={onChange} className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none">
             {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
         </select>
     </div>
@@ -335,7 +335,7 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExport
                                             e.stopPropagation();
                                             removeCharacter(char.id);
                                         }}
-                                        className="text-red-500 hover:text-red-400 text-sm z-10 relative font-normal shrink-0 ml-4"
+                                        className="text-brand-text-muted hover:text-brand-primary text-sm z-10 relative font-normal shrink-0 ml-4 transition-colors"
                                         aria-label={`Hapus Karakter ${charIndex + 1}`}
                                     >
                                         Hapus
@@ -366,7 +366,7 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExport
                                     <div key={event.id} className="bg-brand-bg/50 p-3 rounded-lg space-y-2">
                                         <div className="flex justify-between items-center">
                                             <span className="text-sm font-bold text-brand-accent">{event.type === 'action' ? 'Aksi' : 'Dialog'}</span>
-                                            <button onClick={() => removeTimelineEvent(char.id, event.id)} className="text-red-500 hover:text-red-400 text-xl font-bold">&times;</button>
+                                            <button onClick={() => removeTimelineEvent(char.id, event.id)} className="text-brand-text-muted hover:text-brand-primary text-xl font-bold transition-colors">&times;</button>
                                         </div>
                                         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 items-end">
                                             {renderInputField('Mulai (s)', event.start, e => updateTimelineEvent(char.id, event.id, 'start', e.target.value), '', 'number')}
@@ -381,14 +381,14 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExport
                                     </div>
                                 ))}
                                 <div className="flex gap-2">
-                                    <button onClick={() => addTimelineEvent(char.id, 'action')} className="flex-1 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold py-2 px-4 rounded-md transition-colors">+ Tambah Aksi</button>
-                                    <button onClick={() => addTimelineEvent(char.id, 'dialogue')} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-sm font-semibold py-2 px-4 rounded-md transition-colors">+ Tambah Dialog</button>
+                                    <button onClick={() => addTimelineEvent(char.id, 'action')} className="flex-1 bg-brand-accent/80 hover:bg-brand-accent text-black text-sm font-bold py-2 px-4 rounded-md transition-colors">+ Tambah Aksi</button>
+                                    <button onClick={() => addTimelineEvent(char.id, 'dialogue')} className="flex-1 bg-brand-accent/80 hover:bg-brand-accent text-black text-sm font-bold py-2 px-4 rounded-md transition-colors">+ Tambah Dialog</button>
                                 </div>
                             </div>
                         </div>
                     </Accordion>
                 ))}
-                <button onClick={addCharacter} className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-4 rounded-md transition-colors">+ Tambah Karakter</button>
+                <button onClick={addCharacter} className="w-full mt-4 bg-brand-secondary hover:bg-brand-surface text-brand-text-muted font-semibold py-2 px-4 rounded-md transition-colors">+ Tambah Karakter</button>
             </div>
             
             {/* --- SCENE SETTINGS SECTION --- */}
@@ -414,12 +414,12 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExport
                     <div className="flex-grow">
                         {renderInputField('Akhir (detik)', segment.endTime, e => updateClipSegment(segment.id, 'endTime', e.target.value), '', 'number')}
                     </div>
-                    <button onClick={() => removeClipSegment(segment.id)} className="p-2 text-red-500 hover:text-red-400 rounded-md hover:bg-white/10 transition-colors">
+                    <button onClick={() => removeClipSegment(segment.id)} className="p-2 text-brand-text-muted hover:text-brand-primary rounded-md hover:bg-brand-secondary/50 transition-colors">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                     </div>
                 ))}
-                <button onClick={addClipSegment} className="w-full mt-2 bg-brand-accent/80 hover:bg-brand-accent text-white font-semibold py-2 px-4 rounded-md transition-colors">
+                <button onClick={addClipSegment} className="w-full mt-2 bg-brand-accent/80 hover:bg-brand-accent text-black font-bold py-2 px-4 rounded-md transition-colors">
                     + Tambah Segmen Klip
                 </button>
                 </div>
@@ -430,7 +430,7 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExport
         <div className="lg:col-span-2 relative">
             <div className="lg:sticky lg:top-24 h-fit">
                 <h2 className="text-xl font-bold text-brand-text mb-4">Prompt Canvas</h2>
-                <div className="bg-brand-surface rounded-lg shadow-inner h-[70vh] lg:h-[calc(100vh-13rem)]">
+                <div className="bg-brand-surface rounded-lg shadow-inner h-[70vh] lg:h-[calc(100vh-13rem)] border border-brand-primary/20">
                     <pre className="whitespace-pre-wrap break-words text-sm p-4 overflow-y-auto text-brand-text-muted h-full w-full rounded-lg">
                         {canvasOutput}
                     </pre>
@@ -440,12 +440,12 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExport
 
 
         {/* --- FOOTER ACTIONS --- */}
-        <div className="fixed bottom-0 left-0 right-0 bg-brand-surface/80 backdrop-blur-sm border-t border-white/10 p-4 z-10 md:left-64">
+        <div className="fixed bottom-0 left-0 right-0 bg-brand-surface/80 backdrop-blur-sm border-t border-brand-primary/20 p-4 z-10 md:left-64">
             <div className="container mx-auto flex flex-col md:flex-row justify-end items-center gap-6">
-                <button onClick={handleCopyCanvas} className="w-full md:w-auto px-6 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-500 transition-colors">
+                <button onClick={handleCopyCanvas} className="w-full md:w-auto px-6 py-2 bg-brand-secondary text-brand-text-muted font-semibold rounded-md hover:bg-brand-surface transition-colors">
                     {copyButtonText}
                 </button>
-                <button onClick={handleExportToBatchClick} className="w-full md:w-auto px-8 py-2 bg-brand-primary text-white font-bold rounded-md hover:bg-purple-500 transition-colors shadow-lg shadow-brand-primary/20">
+                <button onClick={handleExportToBatchClick} className="w-full md:w-auto px-8 py-2 bg-brand-primary text-black font-bold rounded-md hover:opacity-90 transition-colors shadow-lg shadow-brand-primary/20">
                     Ekspor ke Batch
                 </button>
             </div>

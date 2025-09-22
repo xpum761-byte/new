@@ -62,7 +62,7 @@ export const BatchGeneratorTab: React.FC<BatchGeneratorTabProps> = ({ segments, 
     <div className="flex flex-col h-full">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-lg font-semibold text-brand-text">Video Segments</h2>
-        <button onClick={addSegment} className="px-4 py-2 bg-brand-accent text-white font-semibold rounded-md hover:bg-sky-400 transition-colors">
+        <button onClick={addSegment} className="px-4 py-2 bg-brand-accent text-white font-semibold rounded-md hover:bg-gray-600 transition-colors">
           Add Segment
         </button>
       </div>
@@ -94,7 +94,7 @@ export const BatchGeneratorTab: React.FC<BatchGeneratorTabProps> = ({ segments, 
                      <div>
                         <div className="flex gap-2 flex-wrap">
                             {videoAspectRatios.map(ratio => (
-                                <button key={ratio} onClick={() => updateSegment(segment.id, { aspectRatio: ratio })} className={`px-2 py-1 text-xs rounded-md transition-colors ${segment.aspectRatio === ratio ? 'bg-brand-primary text-white' : 'bg-brand-bg/50 hover:bg-white/10'}`}>
+                                <button key={ratio} onClick={() => updateSegment(segment.id, { aspectRatio: ratio })} className={`px-2 py-1 text-xs rounded-md transition-colors ${segment.aspectRatio === ratio ? 'bg-brand-primary text-black' : 'bg-brand-bg/50 hover:bg-white/10'}`}>
                                     {ratio}
                                 </button>
                             ))}
@@ -125,7 +125,7 @@ export const BatchGeneratorTab: React.FC<BatchGeneratorTabProps> = ({ segments, 
                     )}
                 </div>
               </div>
-              <button onClick={() => removeSegment(segment.id)} className="text-brand-text-muted hover:text-red-500 transition-colors">
+              <button onClick={() => removeSegment(segment.id)} className="text-brand-text-muted hover:text-white transition-colors">
                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>

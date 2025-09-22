@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, DragEvent, ChangeEvent, useRef } from 'react';
 
 interface ImageDropzoneProps {
@@ -59,7 +60,7 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({ imageFile, onFileC
       >
         <img src={previewUrl} alt="Image preview" className="w-full h-full object-cover rounded-lg" />
         
-        <div className={`absolute inset-0 bg-black/60 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${isDragOver ? 'opacity-100 border-2 border-dashed border-brand-primary' : ''}`}>
+        <div className={`absolute inset-0 bg-black/60 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${isDragOver ? 'opacity-100 border-2 border-dashed border-brand-accent' : ''}`}>
            <div className="text-center text-white p-2">
              <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
              <p className="text-xs font-semibold mt-1">Drop to replace or click to change</p>
@@ -71,7 +72,7 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({ imageFile, onFileC
             e.stopPropagation(); // Prevent the click from triggering file select
             onFileRemove();
           }}
-          className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/90 transition-colors z-10"
+          className="absolute top-2 right-2 bg-brand-surface/80 text-white rounded-full p-1 hover:bg-brand-primary hover:text-black transition-colors z-10"
           aria-label="Remove image"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -96,7 +97,7 @@ export const ImageDropzone: React.FC<ImageDropzoneProps> = ({ imageFile, onFileC
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       onClick={triggerFileSelect}
-      className={`relative border-2 border-dashed rounded-lg p-6 text-center flex flex-col items-center justify-center transition-colors duration-200 cursor-pointer ${isDragOver ? 'border-brand-primary bg-brand-primary/10' : 'border-white/20'} ${containerClassName}`}
+      className={`relative border-2 border-dashed rounded-lg p-6 text-center flex flex-col items-center justify-center transition-colors duration-200 cursor-pointer ${isDragOver ? 'border-brand-accent bg-brand-accent/10' : 'border-brand-primary/20'} ${containerClassName}`}
     >
        <input
         type="file"

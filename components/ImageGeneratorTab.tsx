@@ -39,7 +39,7 @@ export const ImageGeneratorTab: React.FC<ImageGeneratorTabProps> = ({ prompt, se
               onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setPrompt(e.target.value)}
               placeholder="e.g., A photorealistic image of a futuristic city at night, with flying cars"
               rows={4}
-              className="w-full bg-brand-surface border border-white/10 rounded-md p-3 text-brand-text focus:ring-2 focus:ring-brand-primary focus:outline-none transition"
+              className="w-full bg-brand-surface border border-brand-primary/20 rounded-md p-3 text-brand-text focus:ring-2 focus:ring-brand-accent focus:outline-none transition"
             />
         </div>
         <div className="lg:col-span-1">
@@ -59,7 +59,7 @@ export const ImageGeneratorTab: React.FC<ImageGeneratorTabProps> = ({ prompt, se
                          <label className="block text-sm font-medium text-brand-text-muted mb-2">Aspect Ratio</label>
                          <div className="flex gap-2 flex-wrap">
                             {aspectRatios.map(ratio => (
-                                <button key={ratio} onClick={() => setAspectRatio(ratio)} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${aspectRatio === ratio ? 'bg-brand-primary text-white' : 'bg-brand-surface hover:bg-brand-surface/50'}`}>
+                                <button key={ratio} onClick={() => setAspectRatio(ratio)} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${aspectRatio === ratio ? 'bg-brand-primary text-black font-semibold' : 'bg-brand-bg hover:bg-brand-secondary'}`}>
                                     {ratio}
                                 </button>
                             ))}
@@ -80,18 +80,18 @@ export const ImageGeneratorTab: React.FC<ImageGeneratorTabProps> = ({ prompt, se
                     </div>
                 </>
             ) : (
-                <div className="bg-brand-surface border border-dashed border-white/10 rounded-lg p-4 h-full flex items-center justify-center">
+                <div className="bg-brand-surface border border-dashed border-brand-primary/20 rounded-lg p-4 h-full flex items-center justify-center">
                     <p className="text-sm text-center text-brand-text-muted">Aspect ratio & image count are set by the reference image in edit mode.</p>
                 </div>
             )}
         </div>
       </div>
 
-      <div className="flex-grow bg-brand-surface rounded-lg p-4">
+      <div className="flex-grow bg-brand-surface rounded-lg p-4 border border-brand-primary/10">
         {isGenerating ? (
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: referenceImage ? 1: numberOfImages }).map((_, i) => (
-              <div key={i} className="bg-white/5 animate-pulse rounded-md" style={{ aspectRatio: aspectRatio.replace(':', ' / ') }}></div>
+              <div key={i} className="bg-brand-secondary/50 animate-pulse rounded-md" style={{ aspectRatio: aspectRatio.replace(':', ' / ') }}></div>
             ))}
           </div>
         ) : images.length > 0 ? (
@@ -102,7 +102,7 @@ export const ImageGeneratorTab: React.FC<ImageGeneratorTabProps> = ({ prompt, se
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity duration-300">
                         <button
                             onClick={() => handleDownload(img, i)}
-                            className="text-white p-3 rounded-full bg-black/40 hover:bg-brand-primary transition-colors"
+                            className="text-white p-3 rounded-full bg-brand-surface/50 hover:bg-brand-primary hover:text-black transition-colors"
                             aria-label={`Download image ${i + 1}`}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -114,10 +114,10 @@ export const ImageGeneratorTab: React.FC<ImageGeneratorTabProps> = ({ prompt, se
             ))}
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full text-brand-text-muted">
+          <div className="flex items-center justify-center h-full text-brand-text-muted border-2 border-dashed border-brand-primary/20 rounded-lg">
              <div className="text-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                <p className="mt-2">Your generated images will appear here.</p>
+                <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                <p className="mt-4 text-base">Your generated images will appear here.</p>
              </div>
           </div>
         )}
