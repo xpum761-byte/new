@@ -1,8 +1,9 @@
 
 
+
 import React, { ChangeEvent, useRef } from 'react';
 import type { VideoSegment } from './types';
-import { ImageDropzone } from './components/ImageDropzone';
+import { ImageDropzone } from './ImageDropzone';
 
 interface VideoGeneratorTabProps {
   segments: VideoSegment[];
@@ -87,58 +88,55 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
                   <StatusIcon status={segment.status} />
                   <div className="flex-grow"></div>
                   <button onClick={() => removeSegment(segment.id)} className="text-brand-text-muted hover:text-brand-primary transition-colors p-1 rounded-full">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                   </button>
               </div>
 
-              {/* --- Segment Content --- */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Left Side: Inputs */}
-                <div className="flex flex-col gap-4">
-                  <textarea
-                      value={segment.prompt}
-                      onChange={(e: ChangeEvent<HTMLTextAreaElement>) => updateSegment(segment.id, { prompt: e.target.value })}
-                      placeholder="e.g., A majestic lion roaring on a rocky outcrop at sunset..."
-                      rows={4}
-                      className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-3 text-brand-text focus:ring-2 focus:ring-brand-accent focus:outline-none transition"
-                  />
-                  <div>
-                    <label className="block text-sm font-medium text-brand-text-muted mb-2">Aspect Ratio</label>
-                    <div className="flex gap-2 flex-wrap">
-                      {videoAspectRatios.map(ratio => (
-                          <button key={ratio} onClick={() => updateSegment(segment.id, { aspectRatio: ratio })} className={`px-3 py-1.5 text-sm rounded-md transition-colors ${segment.aspectRatio === ratio ? 'bg-brand-primary text-black font-semibold' : 'bg-brand-bg hover:bg-brand-secondary'}`}>
-                              {ratio}
-                          </button>
-                      ))}
+              {/* --- Segment Body --- */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Left Side: Prompt & Settings */}
+                  <div className="flex flex-col gap-4">
+                      <textarea
+                        value={segment.prompt}
+                        onChange={(e: ChangeEvent<HTMLTextAreaElement>) => updateSegment(segment.id, { prompt: e.target.value })}
+                        placeholder="Enter prompt for this segment..."
+                        rows={3}
+                        className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none resize-y"
+                      />
+                      <ImageDropzone 
+                          imageFile={segment.startImage}
+                          onFileChange={(file) => updateSegment(segment.id, { startImage: file })}
+                          onFileRemove={() => updateSegment(segment.id, { startImage: undefined })}
+                          containerClassName="h-32"
+                          promptText="Add optional start image"
+                      />
+                      <div>
+                        <label className="block text-xs font-medium text-brand-text-muted mb-2">Aspect Ratio</label>
+                        <div className="flex gap-2 flex-wrap">
+                            {videoAspectRatios.map(ratio => (
+                                <button key={ratio} onClick={() => updateSegment(segment.id, { aspectRatio: ratio })} className={`px-2 py-1 text-xs rounded-md transition-colors ${segment.aspectRatio === ratio ? 'bg-brand-primary text-black font-semibold' : 'bg-brand-bg hover:bg-brand-secondary'}`}>
+                                    {ratio}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                   </div>
-                  <ImageDropzone 
-                      imageFile={segment.startImage}
-                      onFileChange={(file) => updateSegment(segment.id, { startImage: file })}
-                      onFileRemove={() => updateSegment(segment.id, { startImage: undefined })}
-                      promptText='Start Image (Optional)'
-                  />
-                </div>
 
-                {/* Right Side: Output */}
-                <div className="bg-brand-bg/50 rounded-lg flex items-center justify-center min-h-[250px] relative border border-brand-primary/10">
+                  {/* Right Side: Video Output */}
+                   <div className="bg-brand-bg/50 rounded-lg flex items-center justify-center min-h-[200px] relative overflow-hidden">
                     {segment.videoUrl ? (
                         <>
-                         <video src={segment.videoUrl} controls loop className="w-full h-full object-contain rounded-lg" />
+                         <video src={segment.videoUrl} controls loop className="w-full h-full object-contain" />
                          <button
                             onClick={() => handleDownload(segment.videoUrl!, segment.prompt)}
-                            className="absolute top-2 right-2 bg-brand-surface/80 text-white rounded-full p-1.5 hover:bg-brand-primary hover:text-black transition-colors"
+                            className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1.5 hover:bg-brand-primary transition-colors"
                             aria-label="Download video segment"
                          >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                          </button>
                         </>
-                    ) : segment.status === 'generating' ? (
-                        <div className="text-center text-brand-text-muted">
-                           <p>Generating...</p>
-                        </div>
                     ) : (
-                        <p className="text-sm text-brand-text-muted text-center px-4">Video output will appear here</p>
+                        <p className="text-sm text-brand-text-muted">Video output will appear here</p>
                     )}
                 </div>
               </div>
@@ -148,8 +146,8 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
       ) : (
         <div className="flex-grow flex items-center justify-center text-brand-text-muted border-2 border-dashed border-brand-primary/20 rounded-lg">
           <div className="text-center">
-             <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
-            <p className="mt-4 text-base">Click "Add Segment" to start building your video.</p>
+             <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+            <p className="mt-2">Click "Add Segment" to start building your video.</p>
           </div>
         </div>
       )}
