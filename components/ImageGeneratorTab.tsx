@@ -1,6 +1,7 @@
 
+
 import React, { ChangeEvent } from 'react';
-import { ImageDropzone } from './ImageDropzone';
+import { ImageDropzone } from '../ImageDropzone';
 
 interface ImageGeneratorTabProps {
   prompt: string;

@@ -1,7 +1,9 @@
 
+
+
 import React, { ChangeEvent, useRef } from 'react';
 import type { BatchSegment } from '../types';
-import { ImageDropzone } from './ImageDropzone';
+import { ImageDropzone } from '../ImageDropzone';
 
 interface BatchGeneratorTabProps {
   segments: BatchSegment[];

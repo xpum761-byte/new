@@ -1,55 +1,16 @@
 
 
+
 import React, { useState, ChangeEvent, useEffect, useCallback } from 'react';
-import type { PromptGeneratorTabProps } from '../types';
-
-// --- TYPE DEFINITIONS ---
-interface ActionEvent {
-  id: string;
-  type: 'action';
-  start: string;
-  end: string;
-  description: string;
-}
-
-interface DialogueEvent {
-  id: string;
-  type: 'dialogue';
-  start: string;
-  end: string;
-  text: string;
-}
-
-type TimelineEvent = ActionEvent | DialogueEvent;
-
-interface Character {
-  id: string;
-  name: string;
-  nationality: string;
-  traits: string;
-  appearance: string;
-  voice: {
-    type: string;
-    pitch: string;
-    timbre: string;
-    consistency: string;
-  };
-  timeline: TimelineEvent[];
-}
-
-interface SceneSettings {
-  mood: string;
-  backgroundSound: string;
-  cameraAngle: string;
-  graphicStyle: string;
-  lighting: string;
-}
-
-interface ClipSegment {
-  id: string;
-  startTime: string;
-  endTime: string;
-}
+import { 
+  PromptGeneratorTabProps,
+  Character,
+  SceneSettings,
+  ClipSegment,
+  TimelineEvent,
+  ActionEvent,
+  DialogueEvent
+} from '../types';
 
 // --- ACCORDION COMPONENT ---
 const Accordion: React.FC<{ title: React.ReactNode; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {
@@ -83,8 +44,8 @@ const Accordion: React.FC<{ title: React.ReactNode; children: React.ReactNode; d
 };
 
 
-// --- INITIAL STATE ---
-const createNewTimelineEvent = (type: 'action' | 'dialogue'): TimelineEvent => ({
+// --- INITIAL STATE HELPERS (EXPORTED) ---
+export const createNewTimelineEvent = (type: 'action' | 'dialogue'): TimelineEvent => ({
   id: crypto.randomUUID(),
   type,
   start: '',
@@ -93,7 +54,7 @@ const createNewTimelineEvent = (type: 'action' | 'dialogue'): TimelineEvent => (
   text: '',
 } as ActionEvent | DialogueEvent);
 
-const createNewCharacter = (): Character => ({
+export const createNewCharacter = (): Character => ({
   id: crypto.randomUUID(),
   name: '',
   nationality: 'Indonesia',
@@ -108,7 +69,7 @@ const createNewCharacter = (): Character => ({
   timeline: [],
 });
 
-const initialSceneSettings: SceneSettings = {
+export const initialSceneSettings: SceneSettings = {
   mood: '',
   backgroundSound: '',
   cameraAngle: 'Normal (Eye-level)',
@@ -133,14 +94,18 @@ const cameraAngles = ["Normal (Eye-level)", "High-angle", "Low-angle", "Dutch An
 const graphicStyles = ["Realistic", "Cartoon", "Anime", "Fantasy", "Cyberpunk", "Vintage"];
 const lightings = ["Siang Hari (Cerah)", "Malam Hari", "Mendung", "Golden Hour", "Blue Hour", "Neon"];
 
-export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExportToBatch, isSidebarOpen }) => {
-  const [characters, setCharacters] = useState<Character[]>([createNewCharacter()]);
-  const [sceneSettings, setSceneSettings] = useState<SceneSettings>(initialSceneSettings);
+export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ 
+  onExportToBatch, 
+  isSidebarOpen,
+  characters,
+  setCharacters,
+  sceneSettings,
+  setSceneSettings,
+  clipSegments,
+  setClipSegments,
+}) => {
   const [canvasOutput, setCanvasOutput] = useState('');
   const [copyButtonText, setCopyButtonText] = useState('Salin Canvas');
-  const [clipSegments, setClipSegments] = useState<ClipSegment[]>([
-    { id: crypto.randomUUID(), startTime: '0', endTime: '8' }
-  ]);
 
 
   // --- CHARACTER HANDLERS ---
@@ -212,9 +177,9 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExport
         const start = event.start || "0";
         const end = event.end || "0";
         if (event.type === 'action') {
-          content += `(${start}s - ${end}s) AKSI: ${event.description}\n`;
+          content += `(${start}s - ${end}s) AKSI: ${(event as ActionEvent).description}\n`;
         } else {
-          content += `(${start}s - ${end}s) DIALOG: "${event.text}"\n`;
+          content += `(${start}s - ${end}s) DIALOG: "${(event as DialogueEvent).text}"\n`;
         }
       });
       content += `\n`;
@@ -269,9 +234,9 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExport
           if (eventsInSegment.length > 0) {
               eventsInSegment.forEach(event => {
                   if (event.type === 'action') {
-                      sceneDescription += `- Pada detik ke-${event.start}, ${event.characterName} melakukan aksi: ${event.description}.\n`;
+                      sceneDescription += `- Pada detik ke-${event.start}, ${event.characterName} melakukan aksi: ${(event as ActionEvent).description}.\n`;
                   } else {
-                      sceneDescription += `- Pada detik ke-${event.start}, ${event.characterName} berkata: "${event.text}".\n`;
+                      sceneDescription += `- Pada detik ke-${event.start}, ${event.characterName} berkata: "${(event as DialogueEvent).text}".\n`;
                   }
               });
           } else {
@@ -374,9 +339,9 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExport
                                             <span className="text-xs text-brand-text-muted pb-2">Durasi: {calculateDuration(event.start, event.end)}s</span>
                                         </div>
                                         {event.type === 'action' ? (
-                                            renderTextareaField('Deskripsi Aksi', event.description, e => updateTimelineEvent(char.id, event.id, 'description', e.target.value))
+                                            renderTextareaField('Deskripsi Aksi', (event as ActionEvent).description, e => updateTimelineEvent(char.id, event.id, 'description', e.target.value))
                                         ) : (
-                                            renderTextareaField('Teks Dialog', event.text, e => updateTimelineEvent(char.id, event.id, 'text', e.target.value))
+                                            renderTextareaField('Teks Dialog', (event as DialogueEvent).text, e => updateTimelineEvent(char.id, event.id, 'text', e.target.value))
                                         )}
                                     </div>
                                 ))}
@@ -440,7 +405,7 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ onExport
 
 
         {/* --- FOOTER ACTIONS --- */}
-        <div className="fixed bottom-0 left-0 right-0 bg-brand-surface/80 backdrop-blur-sm border-t border-brand-primary/20 p-4 z-10 md:left-64">
+        <div className={`fixed bottom-0 left-0 right-0 bg-brand-surface/80 backdrop-blur-sm border-t border-brand-primary/20 p-4 z-10 transition-all duration-300 ${isSidebarOpen ? 'md:left-64' : 'md:left-20'}`}>
             <div className="container mx-auto flex flex-col md:flex-row justify-end items-center gap-6">
                 <button onClick={handleCopyCanvas} className="w-full md:w-auto px-6 py-2 bg-brand-secondary text-brand-text-muted font-semibold rounded-md hover:bg-brand-surface transition-colors">
                     {copyButtonText}
