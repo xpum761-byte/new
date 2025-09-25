@@ -17,6 +17,7 @@ export interface GenerationState {
 export interface VideoSegment {
   id: string;
   prompt: string;
+  dialogue?: string;
   startImage?: File;
   videoUrl?: string;
   status: 'idle' | 'generating' | 'success' | 'error';
@@ -73,7 +74,7 @@ export interface ClipSegment {
 }
 
 export interface PromptGeneratorTabProps {
-  onExportToBatch: (prompts: string[]) => void;
+  onExportToBatch: (segments: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'>[]) => void;
   characters: Character[];
   setCharacters: React.Dispatch<React.SetStateAction<Character[]>>;
   sceneSettings: SceneSettings;
