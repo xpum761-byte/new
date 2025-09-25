@@ -1,5 +1,6 @@
 
 
+
 export enum Tab {
   VIDEO_GENERATOR = 'video_generator',
   IMAGE_GENERATOR = 'image_generator',
@@ -79,6 +80,8 @@ export interface PromptGeneratorTabProps {
   setSceneSettings: React.Dispatch<React.SetStateAction<SceneSettings>>;
   clipSegments: ClipSegment[];
   setClipSegments: React.Dispatch<React.SetStateAction<ClipSegment[]>>;
+  apiKey: string;
+  openSettings: () => void;
 }
 
 export interface BatchSegment {
