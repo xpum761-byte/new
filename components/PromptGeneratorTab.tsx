@@ -256,66 +256,93 @@ Narasi Lengkap:`;
   const handleGenerateTimelineFromStory = async () => {
     if (!apiKey) { alert("Please set your Gemini API key in the settings first."); openSettings(); return; }
     if (!storyIdea) { alert("Please provide a story idea first."); return; }
-    if (characters.length === 0) { alert("Please add at least one character first."); return; }
+    
     setIsGeneratingTimeline(true);
     try {
         const ai = new GoogleGenAI({ apiKey });
-        const characterDescriptions = characters.map((c, i) => `CHARACTER ${i + 1} (ID: ${c.id}):\nName: ${c.name || 'Unnamed'}\nDescription: ${c.appearance || 'No appearance'}. Traits: ${c.traits || 'No traits'}.`).join('\n\n');
         
         const sceneCount = parseInt(numberOfScenes, 10) || 1;
-        // The total duration is now strictly based on the number of scenes * 8 seconds.
         const totalDuration = sceneCount * 8;
 
-        const prompt = `You are a creative scriptwriter. Your task is to take a story idea and break it down into a detailed timeline of actions and dialogues for a set of characters.
+        const prompt = `Anda adalah seorang penulis naskah AI. Tugas Anda adalah mengubah ide cerita menjadi data karakter dan timeline terstruktur dalam format JSON.
 
-STORY IDEA: "${storyIdea}"
-CHARACTERS:
-${characterDescriptions}
+IDE CERITA: "${storyIdea}"
 
-TASK: Generate a timeline of events (actions and dialogues) for each character, distributed over a total duration of exactly ${totalDuration} seconds, corresponding to ${sceneCount} scenes of 8 seconds each.
-- The output MUST be a valid JSON object.
-- The JSON object should have keys corresponding to the character IDs provided above.
-- The value for each character ID key should be an array of event objects.
-- Each event object must have: "type" (string: "action" or "dialogue"), "start" (string in seconds), "end" (string in seconds, must be > start), "content" (string description/dialogue).
-- Ensure events are chronologically ordered and creative. Do not exceed the total duration.`;
+TUGAS:
+1.  Identifikasi semua karakter utama dalam cerita.
+2.  Untuk setiap karakter, tentukan detail berikut:
+    a.  **name**: Nama karakter.
+    b.  **character_type**: Jenis karakter. Pilih salah satu: 'manusia', 'hewan', 'benda', atau 'lainnya'.
+    c.  **appearance**: Deskripsi penampilan fisik. Contoh untuk hewan: "Seekor singa jantan gagah dengan surai lebat." Contoh untuk benda: "Sebuah mobil balap merah mengkilap dengan stiker api."
+    d.  **traits**: Sifat-sifat utama karakter (misalnya: "Pemberani, setia, sedikit ceroboh").
+    e.  **voice_description**: Deskripsi singkat suaranya. Contoh untuk hewan: "Auman yang dalam dan menggelegar." Contoh untuk benda: "Deru mesin yang bertenaga." Contoh untuk manusia: "Suara wanita yang lembut dan menenangkan."
+    f.  **timeline**: Buat daftar peristiwa (aksi atau dialog) untuk karakter ini, sebarkan secara merata dalam durasi total ${totalDuration} detik.
+3.  Pastikan outputnya adalah array JSON yang valid.`;
 
         const schema = {
-            type: Type.OBJECT,
-            properties: characters.reduce((acc, char) => {
-                acc[char.id] = {
-                    type: Type.ARRAY,
-                    items: {
-                        type: Type.OBJECT,
-                        properties: {
-                            type: { type: Type.STRING },
-                            start: { type: Type.STRING },
-                            end: { type: Type.STRING },
-                            content: { type: Type.STRING },
-                        },
-                        required: ["type", "start", "end", "content"],
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING },
+                character_type: { type: Type.STRING },
+                appearance: { type: Type.STRING },
+                traits: { type: Type.STRING },
+                voice_description: { type: Type.STRING },
+                timeline: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      type: { type: Type.STRING },
+                      start: { type: Type.STRING },
+                      end: { type: Type.STRING },
+                      content: { type: Type.STRING },
                     },
-                };
-                return acc;
-            }, {} as any),
+                    required: ["type", "start", "end", "content"],
+                  },
+                },
+              },
+              required: ["name", "character_type", "appearance", "traits", "voice_description", "timeline"],
+            },
         };
         
         const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt, config: { responseMimeType: "application/json", responseSchema: schema } });
-        const generatedTimelines = JSON.parse(response.text.trim());
+        const generatedData = JSON.parse(response.text.trim());
 
-        const updatedCharacters = characters.map(char => {
-            const newTimeline: TimelineEvent[] = (generatedTimelines[char.id] || []).map((event: any) => ({
+        const newCharacters: Character[] = generatedData.map((charData: any) => {
+            const isHuman = charData.character_type === 'manusia';
+            const defaultVoice = createNewCharacter().voice;
+    
+            return {
                 id: crypto.randomUUID(),
-                type: event.type,
-                start: event.start,
-                end: event.end,
-                description: event.type === 'action' ? event.content : '',
-                text: event.type === 'dialogue' ? event.content : '',
-            }));
-            return { ...char, timeline: newTimeline };
+                name: charData.name || 'Karakter Tanpa Nama',
+                nationality: isHuman ? 'Indonesia' : 'N/A',
+                traits: charData.traits || '',
+                appearance: charData.appearance || '',
+                voice: {
+                    type: isHuman ? defaultVoice.type : 'N/A',
+                    pitch: isHuman ? defaultVoice.pitch : 'N/A',
+                    timbre: isHuman ? defaultVoice.timbre : 'N/A',
+                    consistency: charData.voice_description || '',
+                },
+                timeline: (charData.timeline || []).map((event: any): TimelineEvent => ({
+                    id: crypto.randomUUID(),
+                    type: event.type === 'dialogue' ? 'dialogue' : 'action',
+                    start: event.start || '0',
+                    end: event.end || '0',
+                    description: event.type === 'action' ? event.content : '',
+                    text: event.type === 'dialogue' ? event.content : '',
+                })),
+            };
         });
-        setCharacters(updatedCharacters);
 
-        // This logic correctly creates 8-second clips.
+        if (newCharacters.length === 0) {
+            throw new Error("AI tidak dapat mengidentifikasi karakter apa pun dalam ide cerita. Coba buat cerita lebih spesifik.");
+        }
+
+        setCharacters(newCharacters);
+
         const newClipSegments = Array.from({ length: sceneCount }).map((_, i) => ({
             id: crypto.randomUUID(),
             startTime: (i * 8).toString(),
@@ -325,7 +352,8 @@ TASK: Generate a timeline of events (actions and dialogues) for each character, 
 
     } catch (error) {
         console.error("Error generating timeline:", error);
-        alert("Failed to generate timeline from story. See console for details.");
+        const errorMessage = error instanceof Error ? error.message : "Terjadi kesalahan yang tidak diketahui.";
+        alert(`Gagal membuat timeline dari cerita. ${errorMessage} Lihat konsol untuk detailnya.`);
     } finally {
         setIsGeneratingTimeline(false);
     }
@@ -387,8 +415,15 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
       content += `Kebangsaan: ${char.nationality}\n`;
       content += `Ciri Dasar: ${char.traits || 'Tidak ada'}\n`;
       content += `Penampilan: ${char.appearance || 'Tidak ada'}\n`;
-      content += `Suara: ${char.voice.type}, Pitch: ${char.voice.pitch}, Timbre: ${char.voice.timbre}\n`;
-      content += `Konsistensi Suara: ${char.voice.consistency || 'Tidak ada'}\n\n`;
+      
+      if (char.voice.consistency) {
+          content += `Deskripsi Suara: ${char.voice.consistency}\n\n`;
+      } else if (char.voice.type && char.voice.type !== 'N/A') {
+          content += `Suara: ${char.voice.type}, Pitch: ${char.voice.pitch}, Timbre: ${char.voice.timbre}\n\n`;
+      } else {
+          content += '\n';
+      }
+
       content += `[TIMELINE UNTUK ${char.name.toUpperCase() || `KARAKTER ${index + 1}`}]\n`;
       char.timeline.sort((a,b) => parseFloat(a.start) - parseFloat(b.start)).forEach(event => {
         const start = event.start || "0";
@@ -418,8 +453,23 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
 
       characters.forEach((char, index) => {
           basePrompt += `[KARAKTER ${index + 1}: ${char.name.toUpperCase() || 'Tanpa Nama'}]\n`;
-          basePrompt += `Deskripsi: ${char.appearance}, ${char.traits}. Kebangsaan ${char.nationality}.\n`;
-          basePrompt += `Suara: Karakter ini memiliki suara ${char.voice.type} dengan pitch ${char.voice.pitch} dan timbre ${char.voice.timbre}.\n\n`;
+          
+          let description = `${char.appearance || 'Tidak ada penampilan spesifik'}, ${char.traits || 'Tidak ada ciri dasar'}.`;
+          if (char.nationality && char.nationality !== 'N/A') {
+              description += ` Kebangsaan ${char.nationality}.`;
+          }
+          basePrompt += `Deskripsi: ${description}\n`;
+
+          // Use the AI-generated voice description if available
+          if (char.voice.consistency) {
+              basePrompt += `Deskripsi Suara: ${char.voice.consistency}\n\n`;
+          } else if (char.voice.type && char.voice.type !== 'N/A') {
+             // Fallback for manually created human characters
+             basePrompt += `Suara: Karakter ini memiliki suara ${char.voice.type} dengan pitch ${char.voice.pitch} dan timbre ${char.voice.timbre}.\n\n`;
+          }
+          else {
+              basePrompt += `\n`; // Add a blank line for separation if no voice info
+          }
       });
 
       const allEvents = characters.flatMap(char => char.timeline.map(event => ({ ...event, characterName: char.name || `Karakter ${characters.indexOf(char) + 1}` })));
@@ -601,7 +651,7 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
                                     {renderSelectField('Jenis Suara', char.voice.type, e => updateVoiceSetting(char.id, 'type', e.target.value), voiceTypes)}
                                     {renderSelectField('Pitch Nada', char.voice.pitch, e => updateVoiceSetting(char.id, 'pitch', e.target.value), pitches)}
                                     {renderSelectField('Timbre', char.voice.timbre, e => updateVoiceSetting(char.id, 'timbre', e.target.value), timbres)}
-                                    {renderInputField('Konsistensi Suara', char.voice.consistency, e => updateVoiceSetting(char.id, 'consistency', e.target.value), 'Deskripsikan konsistensi...')}
+                                    {renderInputField('Deskripsi Suara (dari AI)', char.voice.consistency, e => updateVoiceSetting(char.id, 'consistency', e.target.value), 'Deskripsikan konsistensi...')}
                                 </div>
                                 <div className="space-y-3">
                                     <h4 className="font-semibold text-brand-text-muted mt-4">Aksi & Dialog Berbasis Timestamp</h4>
