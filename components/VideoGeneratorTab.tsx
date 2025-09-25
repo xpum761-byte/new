@@ -1,3 +1,5 @@
+
+
 import React, { ChangeEvent, useRef } from 'react';
 import type { VideoSegment } from '../types';
 import { ImageDropzone } from './ImageDropzone';
@@ -27,7 +29,7 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
   const videoAspectRatios = ['16:9', '9:16', '4:3', '1:1', '4:5'];
 
   const addSegment = () => {
-    setSegments([...segments, { id: crypto.randomUUID(), prompt: '', startImage: undefined, videoUrl: undefined, status: 'idle', aspectRatio: '16:9', mode: 'transition' }]);
+    setSegments([...segments, { id: crypto.randomUUID(), prompt: '', dialogue: '', startImage: undefined, videoUrl: undefined, status: 'idle', aspectRatio: '16:9', mode: 'transition' }]);
   };
 
   const removeSegment = (id: string) => {
@@ -96,9 +98,16 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
                       <textarea
                         value={segment.prompt}
                         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => updateSegment(segment.id, { prompt: e.target.value })}
-                        placeholder="Enter prompt for this segment..."
+                        placeholder="Enter VISUAL prompt for this segment..."
                         rows={3}
                         className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none resize-y"
+                      />
+                      <textarea
+                        value={segment.dialogue || ''}
+                        onChange={(e: ChangeEvent<HTMLTextAreaElement>) => updateSegment(segment.id, { dialogue: e.target.value })}
+                        placeholder="Enter DIALOGUE for audio generation..."
+                        rows={2}
+                        className="w-full bg-brand-bg/50 border border-brand-accent/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none resize-y"
                       />
                       <ImageDropzone 
                           imageFile={segment.startImage}

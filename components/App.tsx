@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { Footer } from './Footer';
@@ -6,8 +8,8 @@ import { VideoGeneratorTab } from './VideoGeneratorTab';
 import { ImageGeneratorTab } from './ImageGeneratorTab';
 import { PromptGeneratorTab, createNewCharacter, initialSceneSettings } from './PromptGeneratorTab';
 import { SettingsModal } from './SettingsModal';
-import { Tab, Character, SceneSettings, ClipSegment } from '../types';
-import type { GenerationState, VideoSegment } from '../types';
+import { Tab, Character, SceneSettings, ClipSegment, VideoSegment } from '../types';
+import type { GenerationState } from '../types';
 import { Header } from './Header';
 
 // Helper to convert File to Base64
@@ -65,13 +67,11 @@ const App: React.FC = () => {
     setSettingsOpen(false);
   };
 
-  const handleExportToBatch = (prompts: string[]) => {
-    const newSegments: VideoSegment[] = prompts.map(p => ({
+  const handleExportToBatch = (segmentData: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'>[]) => {
+    const newSegments: VideoSegment[] = segmentData.map(data => ({
+        ...data,
         id: crypto.randomUUID(),
-        prompt: p,
         status: 'idle',
-        aspectRatio: '16:9',
-        mode: 'transition',
     }));
     setVideoSegments(newSegments);
     setActiveTab(Tab.VIDEO_GENERATOR);
@@ -102,11 +102,36 @@ const App: React.FC = () => {
                 setGenerationState(prev => ({ ...prev, message: `Generating video ${i + 1} of ${totalSegments}...` }));
 
                 try {
-                    let operation = await ai.models.generateVideos({
-                        model: 'veo-2.0-generate-001',
+                    const generationPayload: {
+                        model: string;
+                        prompt: string;
+                        image?: { imageBytes: string; mimeType: string; };
+                        config: { 
+                            numberOfVideos: number;
+                            audio?: { tts: { text: string } };
+                        };
+                    } = {
+                        model: 'veo-3.0-fast-generate-001',
                         prompt: segment.prompt,
-                        config: { numberOfVideos: 1 }
-                    });
+                        config: { 
+                            numberOfVideos: 1,
+                        }
+                    };
+                    
+                    if (segment.dialogue && segment.dialogue.trim() !== '') {
+                        generationPayload.config.audio = { tts: { text: segment.dialogue } };
+                    }
+
+                    if (segment.startImage) {
+                        setGenerationState(prev => ({ ...prev, message: `Processing image for segment ${i + 1}...` }));
+                        const base64Image = await fileToBase64(segment.startImage);
+                        generationPayload.image = {
+                            imageBytes: base64Image,
+                            mimeType: segment.startImage.type,
+                        };
+                    }
+                    
+                    let operation = await ai.models.generateVideos(generationPayload);
 
                     setGenerationState(prev => ({ ...prev, message: `Processing video ${i + 1}... This may take a few minutes.` }));
 

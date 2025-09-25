@@ -1,4 +1,7 @@
 
+
+
+
 import React, { useState, ChangeEvent, useEffect, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
@@ -8,7 +11,8 @@ import {
   ClipSegment,
   TimelineEvent,
   ActionEvent,
-  DialogueEvent
+  DialogueEvent,
+  VideoSegment
 } from '../types';
 
 // --- ACCORDION COMPONENT ---
@@ -446,59 +450,88 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
 
 
   const handleExportToBatchClick = () => {
-      let basePrompt = `[INFO KONTEKS UTAMA]\nBerikut adalah informasi untuk menjaga konsistensi di semua klip video.\n\n[PENGATURAN SUASANA]\n`;
-      basePrompt += `Gaya visual harus konsisten sebagai: ${sceneSettings.graphicStyle} dengan pencahayaan ${sceneSettings.lighting}.\n`;
-      basePrompt += `Suasana umum adalah ${sceneSettings.mood || 'netral'}.\n`;
-      basePrompt += `Terdengar suara latar ${sceneSettings.backgroundSound || 'hening'}.\n\n`;
+    const allEvents = characters.flatMap(char => 
+        char.timeline.map(event => ({ 
+            ...event, 
+            characterName: char.name || `Karakter ${characters.indexOf(char) + 1}`,
+            character: char
+        }))
+    );
 
-      characters.forEach((char, index) => {
-          basePrompt += `[KARAKTER ${index + 1}: ${char.name.toUpperCase() || 'Tanpa Nama'}]\n`;
-          
-          let description = `${char.appearance || 'Tidak ada penampilan spesifik'}, ${char.traits || 'Tidak ada ciri dasar'}.`;
-          if (char.nationality && char.nationality !== 'N/A') {
-              description += ` Kebangsaan ${char.nationality}.`;
-          }
-          basePrompt += `Deskripsi: ${description}\n`;
+    // FIX: Explicitly type the return of .map() to fix the type predicate error in .filter()
+    const finalSegments: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'>[] = clipSegments.map<Omit<VideoSegment, 'id' | 'status' | 'videoUrl'> | null>(segment => {
+        const segStart = parseFloat(segment.startTime);
+        const segEnd = parseFloat(segment.endTime);
+        
+        if (isNaN(segStart) || isNaN(segEnd) || segEnd <= segStart) return null;
 
-          // Use the AI-generated voice description if available
-          if (char.voice.consistency) {
-              basePrompt += `Deskripsi Suara: ${char.voice.consistency}\n\n`;
-          } else if (char.voice.type && char.voice.type !== 'N/A') {
-             // Fallback for manually created human characters
-             basePrompt += `Suara: Karakter ini memiliki suara ${char.voice.type} dengan pitch ${char.voice.pitch} dan timbre ${char.voice.timbre}.\n\n`;
-          }
-          else {
-              basePrompt += `\n`; // Add a blank line for separation if no voice info
-          }
-      });
+        const actualSegEnd = (segEnd - segStart > 8) ? segStart + 8 : segEnd;
+        const duration = actualSegEnd - segStart;
 
-      const allEvents = characters.flatMap(char => char.timeline.map(event => ({ ...event, characterName: char.name || `Karakter ${characters.indexOf(char) + 1}` })));
-      const finalPrompts = clipSegments.map(segment => {
-          const segStart = parseFloat(segment.startTime);
-          const segEnd = parseFloat(segment.endTime);
-          
-          if (isNaN(segStart) || isNaN(segEnd)) return null;
+        const eventsInSegment = allEvents
+            .filter(event => { 
+                const evtStart = parseFloat(event.start); 
+                return !isNaN(evtStart) && evtStart >= segStart && evtStart < actualSegEnd; 
+            })
+            .sort((a, b) => parseFloat(a.start) - parseFloat(b.start));
 
-          // Enforce 8-second max duration per prompt
-          const duration = segEnd - segStart;
-          if (duration <= 0) return null;
-          const actualSegEnd = duration > 8 ? segStart + 8 : segEnd;
+        const charactersInScene = [...new Map(eventsInSegment.map(event => [event.characterName, event.character])).values()];
 
-          const eventsInSegment = allEvents.filter(event => { const evtStart = parseFloat(event.start); return !isNaN(evtStart) && evtStart >= segStart && evtStart < actualSegEnd; }).sort((a, b) => parseFloat(a.start) - parseFloat(b.start));
-          
-          let sceneDescription = `[ADEGAN UNTUK KLIP INI (Durasi ${segStart}s hingga ${actualSegEnd}s)]\n`;
-          sceneDescription += `Sudut pandang kamera utama adalah ${sceneSettings.cameraAngle}.\n`;
-          
-          if (eventsInSegment.length > 0) {
-              eventsInSegment.forEach(event => {
-                  if (event.type === 'action') { sceneDescription += `- Pada detik ke-${event.start}, ${event.characterName} melakukan aksi: ${(event as ActionEvent).description}.\n`; } 
-                  else { sceneDescription += `- Pada detik ke-${event.start}, ${event.characterName} berkata: "${(event as DialogueEvent).text}".\n`; }
-              });
-          } else { sceneDescription += `- Tidak ada aksi atau dialog spesifik dalam segmen ini. Tampilkan suasana sesuai konteks.\n`; }
-          
-          return basePrompt + sceneDescription;
-      }).filter((p): p is string => p !== null);
-      onExportToBatch(finalPrompts);
+        // Build Visual Prompt
+        let visualPrompt = `A cinematic video clip, ${duration.toFixed(1)} seconds long. `;
+        
+        if (charactersInScene.length > 0) {
+            visualPrompt += "Featuring characters: " + charactersInScene.map(char => 
+                `${char.name} (appearance: ${char.appearance || 'not described'}, traits: ${char.traits || 'not described'})`
+            ).join(', ') + '. ';
+        } else if (characters.length > 0) {
+            visualPrompt += "The story context includes characters: " + characters.map(char => 
+                 `${char.name} (${char.appearance || 'not described'})`
+            ).join(', ') + '. ';
+        }
+
+        visualPrompt += `The visual style is ${sceneSettings.graphicStyle} with ${sceneSettings.lighting} lighting. `;
+        visualPrompt += `The mood is ${sceneSettings.mood || 'neutral'}. `;
+        visualPrompt += `The camera is at a ${sceneSettings.cameraAngle} angle. `;
+
+        const actions = eventsInSegment
+            .filter(event => event.type === 'action')
+            .map(event => `${event.characterName} is ${(event as ActionEvent).description}`)
+            .join(', then ');
+
+        if (actions) {
+            visualPrompt += `In the scene, ${actions}. `;
+        }
+        
+        const dialogues = eventsInSegment
+            .filter(event => event.type === 'dialogue');
+
+        if (dialogues.length > 0) {
+            const dialogueActions = dialogues.map(event => `${event.characterName} is seen speaking`).join(', ');
+            visualPrompt += `${dialogueActions}. `;
+        } else if (!actions) {
+            visualPrompt += "This is an establishing shot of the environment, matching the story's mood. ";
+        }
+
+        if (sceneSettings.backgroundSound) {
+            visualPrompt += `The ambient sound is ${sceneSettings.backgroundSound}.`;
+        }
+        
+        // Build Dialogue Text for TTS
+        const dialogueText = dialogues.map(event => 
+            `${event.characterName}: "${(event as DialogueEvent).text}"`
+        ).join('\n');
+
+        return {
+            prompt: visualPrompt.replace(/\s+/g, ' ').trim(),
+            dialogue: dialogueText,
+            aspectRatio: '16:9', // Default aspect ratio
+            mode: 'transition' as const,
+        };
+
+    }).filter((s): s is Omit<VideoSegment, 'id' | 'status' | 'videoUrl'> => s !== null);
+
+    onExportToBatch(finalSegments);
   };
     
   const handleCopyCanvas = () => {
