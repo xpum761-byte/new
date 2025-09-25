@@ -1,5 +1,4 @@
 
-
 import React, { ChangeEvent, useRef } from 'react';
 import type { VideoSegment } from '../types';
 import { ImageDropzone } from './ImageDropzone';

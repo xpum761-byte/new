@@ -1,7 +1,5 @@
 
 
-
-
 import React, { useState, ChangeEvent, useEffect, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
@@ -123,7 +121,6 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({
   const [numberOfScenes, setNumberOfScenes] = useState('10');
   const [mainTopic, setMainTopic] = useState('Petualangan');
   const [storyIdea, setStoryIdea] = useState('Kisah si Kancil yang bijak menipu buaya');
-  const [isGeneratingStory, setIsGeneratingStory] = useState(false);
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
   const [isGeneratingTimeline, setIsGeneratingTimeline] = useState(false);
   const [isGeneratingScene, setIsGeneratingScene] = useState(false);
@@ -202,22 +199,6 @@ Cerita: "${storyIdea}"`;
     }
   };
 
-  const handleGenerateStoryIdea = async () => {
-    if (!apiKey) { alert("Please set your Gemini API key in the settings first."); openSettings(); return; }
-    setIsGeneratingStory(true);
-    try {
-        const ai = new GoogleGenAI({ apiKey });
-        const prompt = `Buatkan ide cerita pendek yang menarik, unik, dan imajinatif dengan topik utama "${mainTopic}". Cerita harus cocok untuk dijadikan video pendek. Berikan hanya paragraf ceritanya saja, tanpa judul atau embel-embel lainnya.`;
-        const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt });
-        setStoryIdea(response.text.trim());
-    } catch (error) {
-        console.error("Error generating story idea:", error);
-        alert("Failed to generate story idea. See console for details.");
-    } finally {
-        setIsGeneratingStory(false);
-    }
-  };
-
   const handleGenerateNarrative = async () => {
     if (!apiKey) { alert("Please set your Gemini API key in the settings first."); openSettings(); return; }
     if (!storyIdea) { alert("Please provide a story idea first."); return; }
@@ -268,20 +249,28 @@ Narasi Lengkap:`;
         const sceneCount = parseInt(numberOfScenes, 10) || 1;
         const totalDuration = sceneCount * 8;
 
-        const prompt = `Anda adalah seorang penulis naskah AI. Tugas Anda adalah mengubah ide cerita menjadi data karakter dan timeline terstruktur dalam format JSON.
+        const prompt = `Anda adalah seorang sutradara dan penulis naskah AI. Tugas Anda adalah mengubah ide cerita menjadi data karakter dan timeline yang terstruktur secara KRONOLOGIS dan BERURUTAN dalam format JSON, dibagi menjadi segmen-segmen berdurasi 8 detik.
+
+GAYA/GENRE CERITA (berdasarkan topik utama): "${mainTopic}"
 
 IDE CERITA: "${storyIdea}"
+JUMLAH SEGMEN (KLIP): ${sceneCount}
+DURASI TOTAL: ${totalDuration} detik
 
 TUGAS:
-1.  Identifikasi semua karakter utama dalam cerita.
-2.  Untuk setiap karakter, tentukan detail berikut:
+1.  **Identifikasi Karakter**: Identifikasi semua karakter utama. Untuk setiap karakter, berikan detail berikut:
     a.  **name**: Nama karakter.
-    b.  **character_type**: Jenis karakter. Pilih salah satu: 'manusia', 'hewan', 'benda', atau 'lainnya'.
-    c.  **appearance**: Deskripsi penampilan fisik. Contoh untuk hewan: "Seekor singa jantan gagah dengan surai lebat." Contoh untuk benda: "Sebuah mobil balap merah mengkilap dengan stiker api."
-    d.  **traits**: Sifat-sifat utama karakter (misalnya: "Pemberani, setia, sedikit ceroboh").
-    e.  **voice_description**: Deskripsi singkat suaranya. Contoh untuk hewan: "Auman yang dalam dan menggelegar." Contoh untuk benda: "Deru mesin yang bertenaga." Contoh untuk manusia: "Suara wanita yang lembut dan menenangkan."
-    f.  **timeline**: Buat daftar peristiwa (aksi atau dialog) untuk karakter ini, sebarkan secara merata dalam durasi total ${totalDuration} detik.
-3.  Pastikan outputnya adalah array JSON yang valid.`;
+    b.  **character_type**: Jenis karakter. Pilih dari: 'manusia', 'hewan', 'benda', atau 'lainnya'.
+    c.  **appearance**: Deskripsi penampilan fisik yang detail.
+    d.  **traits**: Sifat-sifat utama karakter.
+    e.  **voice_description**: Deskripsi singkat suaranya.
+2.  **Buat Alur Cerita Berurutan**: Bagi keseluruhan cerita menjadi ${sceneCount} adegan/segmen yang berurutan. Setiap segmen merepresentasikan durasi waktu 8 detik.
+3.  **Buat Timeline per Karakter**: Untuk setiap karakter, buat daftar timeline (aksi atau dialog) yang terjadi di dalam setiap segmen. Pastikan timestamp 'start' dan 'end' untuk setiap event berada dalam rentang 8 detik segmen tersebut (misalnya, segmen 1: 0-8s, segmen 2: 8-16s, dst.). Kejadian harus terjadi secara kronologis.
+4.  **Pastikan Konten Timeline**:
+    a.  Untuk event tipe 'action', 'content' harus berisi deskripsi aksi.
+    b.  Untuk event tipe 'dialogue', 'content' harus berisi teks dialog.
+5.  **Output JSON**: Pastikan outputnya adalah array JSON yang valid sesuai skema yang diberikan. Seluruh cerita harus terwakili dalam timeline yang dibuat.`;
+
 
         const schema = {
             type: Type.ARRAY,
@@ -425,346 +414,227 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
       } else if (char.voice.type && char.voice.type !== 'N/A') {
           content += `Suara: ${char.voice.type}, Pitch: ${char.voice.pitch}, Timbre: ${char.voice.timbre}\n\n`;
       } else {
-          content += '\n';
+          content += `Suara: Tidak ditentukan\n\n`;
       }
 
-      content += `[TIMELINE UNTUK ${char.name.toUpperCase() || `KARAKTER ${index + 1}`}]\n`;
-      char.timeline.sort((a,b) => parseFloat(a.start) - parseFloat(b.start)).forEach(event => {
-        const start = event.start || "0";
-        const end = event.end || "0";
-        if (event.type === 'action') {
-          content += `(${start}s - ${end}s) AKSI: ${(event as ActionEvent).description}\n`;
-        } else {
-          content += `(${start}s - ${end}s) DIALOG: "${(event as DialogueEvent).text}"\n`;
-        }
+      content += `[TIMELINE KARAKTER ${index + 1}]\n`;
+      char.timeline
+        .sort((a, b) => parseFloat(a.start) - parseFloat(b.start))
+        .forEach(event => {
+          const duration = calculateDuration(event.start, event.end);
+          if (event.type === 'action') {
+            content += `Aksi (${event.start}s - ${event.end}s, durasi: ${duration}s): ${event.description || 'Tidak ada'}\n`;
+          } else {
+            content += `Dialog (${event.start}s - ${event.end}s, durasi: ${duration}s): "${event.text || 'Tidak ada'}"\n`;
+          }
       });
-      content += `\n`;
+      content += '\n';
     });
-    return content;
-  }, [characters, sceneSettings]);
+
+    content += '[SEGMEN KLIP VIDEO]\n';
+    clipSegments.forEach((seg, index) => {
+        content += `Klip ${index + 1}: ${seg.startTime}s - ${seg.endTime}s\n`;
+    });
+
+    setCanvasOutput(content);
+  }, [characters, sceneSettings, clipSegments]);
 
   useEffect(() => {
-    const content = generateFullCanvas();
-    setCanvasOutput(content);
+    generateFullCanvas();
   }, [generateFullCanvas]);
 
-
-  const handleExportToBatchClick = () => {
-    const allEvents = characters.flatMap(char => 
-        char.timeline.map(event => ({ 
-            ...event, 
-            characterName: char.name || `Karakter ${characters.indexOf(char) + 1}`,
-            character: char
-        }))
-    );
-
-    // FIX: Explicitly type the return of .map() to fix the type predicate error in .filter()
-    const finalSegments: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'>[] = clipSegments.map<Omit<VideoSegment, 'id' | 'status' | 'videoUrl'> | null>(segment => {
-        const segStart = parseFloat(segment.startTime);
-        const segEnd = parseFloat(segment.endTime);
-        
-        if (isNaN(segStart) || isNaN(segEnd) || segEnd <= segStart) return null;
-
-        const actualSegEnd = (segEnd - segStart > 8) ? segStart + 8 : segEnd;
-        const duration = actualSegEnd - segStart;
-
-        const eventsInSegment = allEvents
-            .filter(event => { 
-                const evtStart = parseFloat(event.start); 
-                return !isNaN(evtStart) && evtStart >= segStart && evtStart < actualSegEnd; 
-            })
-            .sort((a, b) => parseFloat(a.start) - parseFloat(b.start));
-
-        const charactersInScene = [...new Map(eventsInSegment.map(event => [event.characterName, event.character])).values()];
-
-        // Build Visual Prompt
-        let visualPrompt = `A cinematic video clip, ${duration.toFixed(1)} seconds long. `;
-        
-        if (charactersInScene.length > 0) {
-            visualPrompt += "Featuring characters: " + charactersInScene.map(char => 
-                `${char.name} (appearance: ${char.appearance || 'not described'}, traits: ${char.traits || 'not described'})`
-            ).join(', ') + '. ';
-        } else if (characters.length > 0) {
-            visualPrompt += "The story context includes characters: " + characters.map(char => 
-                 `${char.name} (${char.appearance || 'not described'})`
-            ).join(', ') + '. ';
-        }
-
-        visualPrompt += `The visual style is ${sceneSettings.graphicStyle} with ${sceneSettings.lighting} lighting. `;
-        visualPrompt += `The mood is ${sceneSettings.mood || 'neutral'}. `;
-        visualPrompt += `The camera is at a ${sceneSettings.cameraAngle} angle. `;
-
-        const actions = eventsInSegment
-            .filter(event => event.type === 'action')
-            .map(event => `${event.characterName} is ${(event as ActionEvent).description}`)
-            .join(', then ');
-
-        if (actions) {
-            visualPrompt += `In the scene, ${actions}. `;
-        }
-        
-        const dialogues = eventsInSegment
-            .filter(event => event.type === 'dialogue');
-
-        if (dialogues.length > 0) {
-            const dialogueActions = dialogues.map(event => `${event.characterName} is seen speaking`).join(', ');
-            visualPrompt += `${dialogueActions}. `;
-        } else if (!actions) {
-            visualPrompt += "This is an establishing shot of the environment, matching the story's mood. ";
-        }
-
-        if (sceneSettings.backgroundSound) {
-            visualPrompt += `The ambient sound is ${sceneSettings.backgroundSound}.`;
-        }
-        
-        // Build Dialogue Text for TTS
-        const dialogueText = dialogues.map(event => 
-            `${event.characterName}: "${(event as DialogueEvent).text}"`
-        ).join('\n');
-
-        return {
-            prompt: visualPrompt.replace(/\s+/g, ' ').trim(),
-            dialogue: dialogueText,
-            aspectRatio: '16:9', // Default aspect ratio
-            mode: 'transition' as const,
-        };
-
-    }).filter((s): s is Omit<VideoSegment, 'id' | 'status' | 'videoUrl'> => s !== null);
-
-    onExportToBatch(finalSegments);
-  };
-    
-  const handleCopyCanvas = () => {
+  const copyCanvasToClipboard = () => {
     navigator.clipboard.writeText(canvasOutput).then(() => {
-        setCopyButtonText('Disalin!');
-        setTimeout(() => setCopyButtonText('Salin Canvas'), 2000);
+      setCopyButtonText('Berhasil disalin!');
+      setTimeout(() => setCopyButtonText('Salin Canvas'), 2000);
+    }).catch(err => {
+      console.error('Could not copy text: ', err);
+      alert('Gagal menyalin canvas.');
     });
   };
 
-  // --- RENDER HELPERS ---
-  const renderInputField = (label: string, value: string, onChange: (e: ChangeEvent<HTMLInputElement>) => void, placeholder = '', type='text') => (
-    <div>
-        <label className="block text-sm font-medium text-brand-text-muted mb-1">{label}</label>
-        <input type={type} value={value} onChange={onChange} placeholder={placeholder} className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none" />
-    </div>
-  );
-  
-  const renderTextareaField = (label: string, value: string, onChange: (e: ChangeEvent<HTMLTextAreaElement>) => void, placeholder = '', rows=2) => (
-    <div>
-        <label className="block text-sm font-medium text-brand-text-muted mb-1">{label}</label>
-        <textarea value={value} onChange={onChange} placeholder={placeholder} rows={rows} className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none resize-y" />
-    </div>
-  );
+ const handleExportToBatchClick = () => {
+    const segments: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'>[] = clipSegments.map(clip => {
+        const startTime = parseFloat(clip.startTime);
+        const endTime = parseFloat(clip.endTime);
 
-  const renderSelectField = (label: string, value: string, onChange: (e: ChangeEvent<HTMLSelectElement>) => void, options: string[]) => (
-    <div>
-        <label className="block text-sm font-medium text-brand-text-muted mb-1">{label}</label>
-        <select value={value} onChange={onChange} className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none">
-            {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-        </select>
-    </div>
-  );
-  
-  const renderAiButton = (text: string, onClick: () => void, isGenerating: boolean, icon: JSX.Element, className: string, generatingText = "Generating...") => (
-      <button onClick={onClick} disabled={isGenerating} className={`w-full mt-2 flex items-center justify-center gap-2 font-bold py-2 px-4 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${className}`}>
-        {isGenerating ? (
-          <>
-            <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-            {generatingText}
-          </>
-        ) : (
-          <>
-            {icon}
-            {text}
-          </>
-        )}
-      </button>
-  )
+        let visualActions: string[] = [];
+        let dialogueLines: string[] = [];
+
+        characters.forEach(char => {
+            char.timeline.forEach(event => {
+                const eventStart = parseFloat(event.start);
+                const eventEnd = parseFloat(event.end);
+                
+                // Check if the event overlaps with the current clip's time range
+                if (Math.max(startTime, eventStart) < Math.min(endTime, eventEnd)) {
+                    if (event.type === 'action' && event.description) {
+                        visualActions.push(`${char.name} ${event.description}.`);
+                    } else if (event.type === 'dialogue' && (event as DialogueEvent).text) {
+                        dialogueLines.push(`${char.name}: "${(event as DialogueEvent).text}"`);
+                    }
+                }
+            });
+        });
+        
+        // Construct the final prompt for the segment
+        const sceneDescription = `Gaya visual: ${sceneSettings.graphicStyle}. Pencahayaan: ${sceneSettings.lighting}. Sudut pandang kamera: ${sceneSettings.cameraAngle}. Suasana: ${sceneSettings.mood}.`;
+        const actionDescription = visualActions.join(' ');
+        
+        const finalPrompt = `${sceneDescription} ${actionDescription}`.trim();
+        const finalDialogue = dialogueLines.join('\n');
+
+        // FIX: Explicitly type the returned object to solve type inference issues in the downstream .filter() and variable assignment.
+        const segmentData: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'> = {
+            prompt: finalPrompt,
+            dialogue: finalDialogue,
+            aspectRatio: '16:9', // Default aspect ratio
+            mode: 'transition',
+        };
+        return segmentData;
+    }).filter((segment): segment is Omit<VideoSegment, 'id' | 'status' | 'videoUrl'> => segment.prompt.length > 0 || (segment.dialogue != null && segment.dialogue.length > 0));
+
+    if (segments.length === 0) {
+        alert("Tidak ada aksi atau dialog yang ditemukan dalam segmen waktu yang ditentukan. Pastikan timeline karakter Anda sudah terisi.");
+        return;
+    }
+    
+    onExportToBatch(segments);
+};
+
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+      {/* --- LEFT & MIDDLE: SETTINGS --- */}
+      <div className="lg:col-span-2 flex flex-col gap-6 overflow-y-auto pr-2 pb-16">
         
-        {/* --- LEFT COLUMN: INPUTS --- */}
-        <div className="lg:col-span-3 space-y-6 pb-48 md:pb-28">
-            
-            {/* --- NEW PROMPT SETTINGS --- */}
-            <div className="bg-brand-surface p-4 rounded-lg border border-brand-primary/20 space-y-4">
-                <h2 className="text-xl font-bold text-brand-text">Pengaturan Prompt</h2>
+        {/* Story Idea Section */}
+        <div className="bg-brand-surface p-4 rounded-lg border border-brand-primary/20">
+          <h2 className="text-lg font-semibold text-brand-text mb-3">1. Ide Cerita</h2>
+          <div className="flex gap-2 mb-2 flex-wrap">
+              {topics.map(topic => (
+                  <button key={topic.name} onClick={() => setMainTopic(topic.name)} className={`px-3 py-1.5 text-sm rounded-full transition-colors flex items-center gap-2 ${mainTopic === topic.name ? 'bg-brand-primary text-black font-semibold' : 'bg-brand-bg hover:bg-brand-secondary'}`}>
+                      <span>{topic.icon}</span> {topic.name}
+                  </button>
+              ))}
+          </div>
+          <textarea
+            value={storyIdea}
+            onChange={(e) => setStoryIdea(e.target.value)}
+            placeholder="Tuliskan ide cerita singkat di sini..."
+            rows={4}
+            className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none resize-y"
+          />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+            <button onClick={handleGenerateNarrative} disabled={isGeneratingNarrative} className="text-xs px-2 py-2 bg-brand-secondary hover:bg-brand-primary/20 rounded-md transition-colors disabled:opacity-50">
+              {isGeneratingNarrative ? 'Membuat...' : 'Kembangkan Narasi'}
+            </button>
+             <button onClick={handleGenerateTitle} disabled={isGeneratingTitle} className="text-xs px-2 py-2 bg-brand-secondary hover:bg-brand-primary/20 rounded-md transition-colors disabled:opacity-50">
+                {isGeneratingTitle ? 'Membuat...' : 'Buat Judul'}
+            </button>
+            <div className="flex items-center col-span-2 sm:col-span-2 bg-brand-secondary rounded-md">
+                 <input
+                    type="number"
+                    value={numberOfScenes}
+                    onChange={e => setNumberOfScenes(e.target.value)}
+                    className="w-full bg-transparent p-2 text-xs text-center appearance-none"
+                    placeholder="Jumlah"
+                />
+                 <label className="text-xs pr-2 text-brand-text-muted whitespace-nowrap">Klip (8s)</label>
+                <button onClick={handleEstimateScenes} disabled={isEstimatingScenes} className="text-xs px-2 py-2 h-full bg-brand-secondary/50 hover:bg-brand-primary/20 rounded-r-md transition-colors disabled:opacity-50">
+                    {isEstimatingScenes ? '...' : 'Auto'}
+                </button>
+            </div>
+           
+          </div>
+          <button onClick={handleGenerateTimelineFromStory} disabled={isGeneratingTimeline} className="w-full mt-3 px-4 py-3 bg-brand-accent text-black font-bold rounded-md hover:opacity-90 transition-colors disabled:opacity-50">
+            {isGeneratingTimeline ? 'Sedang Membuat Timeline...' : 'Generate Timeline & Karakter dari Ide Cerita'}
+          </button>
+        </div>
+
+        {/* Characters Section */}
+        <Accordion title={<h2 className="text-lg font-semibold text-brand-text">2. Karakter</h2>} defaultOpen>
+          <div className="space-y-4">
+            {characters.map((char, index) => (
+              <div key={char.id} className="bg-brand-bg/50 p-4 rounded-lg border border-brand-secondary">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="font-semibold text-brand-text">Karakter {index + 1}</h3>
+                  <button onClick={() => removeCharacter(char.id)} className="text-brand-text-muted hover:text-brand-primary transition-colors text-xs">Hapus</button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <input type="text" placeholder="Nama" value={char.name} onChange={(e) => updateCharacter(char.id, 'name', e.target.value)} className="bg-brand-bg p-2 rounded-md border border-brand-primary/10" />
+                  <input type="text" placeholder="Kebangsaan" value={char.nationality} onChange={(e) => updateCharacter(char.id, 'nationality', e.target.value)} className="bg-brand-bg p-2 rounded-md border border-brand-primary/10" />
+                  <textarea placeholder="Ciri Dasar (Traits)" value={char.traits} onChange={(e) => updateCharacter(char.id, 'traits', e.target.value)} className="md:col-span-2 bg-brand-bg p-2 rounded-md border border-brand-primary/10 resize-y" rows={2}></textarea>
+                  <textarea placeholder="Penampilan" value={char.appearance} onChange={(e) => updateCharacter(char.id, 'appearance', e.target.value)} className="md:col-span-2 bg-brand-bg p-2 rounded-md border border-brand-primary/10 resize-y" rows={2}></textarea>
                 
-                <div>
-                    <label className="block text-sm font-medium text-brand-text-muted mb-1">Jumlah Scene</label>
-                    <div className="flex items-center gap-2">
-                        <input type='number' value={numberOfScenes} onChange={e => setNumberOfScenes(e.target.value)} placeholder='10' className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none" />
-                        <button 
-                            onClick={handleEstimateScenes} 
-                            disabled={isEstimatingScenes}
-                            className="p-2 bg-brand-accent text-black rounded-md hover:opacity-90 transition-colors disabled:opacity-50"
-                            aria-label="Perkirakan jumlah scene dengan AI"
-                            title="Perkirakan jumlah scene dengan AI"
-                        >
-                            {isEstimatingScenes ? 
-                                <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> :
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
-                            }
-                        </button>
-                    </div>
-                </div>
+                  {/* Voice Settings */}
+                  <h4 className="md:col-span-2 text-xs font-semibold uppercase text-brand-text-muted mt-2">Pengaturan Suara</h4>
+                   <textarea placeholder="Atau, deskripsikan suara secara natural di sini..." value={char.voice.consistency} onChange={(e) => updateVoiceSetting(char.id, 'consistency', e.target.value)} className="md:col-span-2 bg-brand-bg p-2 rounded-md border border-brand-primary/10 resize-y" rows={2}></textarea>
 
-                <div>
-                    <label className="block text-sm font-medium text-brand-text-muted mb-2">Pilih Topik Utama</label>
-                    <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
-                        {topics.map(topic => (
-                            <button 
-                                key={topic.name} 
-                                onClick={() => setMainTopic(topic.name)}
-                                className={`flex flex-col items-center justify-center p-2 rounded-md transition-colors text-xs gap-1 ${mainTopic === topic.name ? 'bg-brand-primary/80 text-black font-bold' : 'bg-brand-bg hover:bg-brand-secondary'}`}
-                            >
-                                <span className="text-lg">{topic.icon}</span>
-                                <span>{topic.name}</span>
-                            </button>
-                        ))}
-                    </div>
+                  <select value={char.voice.type} onChange={(e) => updateVoiceSetting(char.id, 'type', e.target.value)} className="bg-brand-bg p-2 rounded-md border border-brand-primary/10">
+                    {voiceTypes.map(v => <option key={v} value={v}>{v}</option>)}
+                    <option value="N/A">N/A (Bukan Manusia)</option>
+                  </select>
+                  <select value={char.voice.pitch} onChange={(e) => updateVoiceSetting(char.id, 'pitch', e.target.value)} className="bg-brand-bg p-2 rounded-md border border-brand-primary/10">
+                    {pitches.map(p => <option key={p} value={p}>{p}</option>)}
+                    <option value="N/A">N/A (Bukan Manusia)</option>
+                  </select>
+                   <select value={char.voice.timbre} onChange={(e) => updateVoiceSetting(char.id, 'timbre', e.target.value)} className="md:col-span-2 bg-brand-bg p-2 rounded-md border border-brand-primary/10">
+                    {timbres.map(t => <option key={t} value={t}>{t}</option>)}
+                     <option value="N/A">N/A (Bukan Manusia)</option>
+                  </select>
                 </div>
-                {renderAiButton(
-                    "Generate Ide Cerita Acak", 
-                    handleGenerateStoryIdea, 
-                    isGeneratingStory, 
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
-                    "bg-green-500 hover:bg-green-400 text-black",
-                    "Generating Ide..."
-                )}
-                <div className="space-y-2">
-                    {renderTextareaField('Ide Cerita (atau buat sendiri)', storyIdea, e => setStoryIdea(e.target.value), 'Contoh: McQueen si mobil balap tersesat di hutan ajaib...', 4)}
-                    {renderAiButton(
-                        "Kembangkan Cerita dengan AI",
-                        handleGenerateNarrative,
-                        isGeneratingNarrative,
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>,
-                        "bg-blue-500 hover:bg-blue-400 text-white",
-                        "Mengembangkan..."
-                    )}
-                    {renderAiButton(
-                        "Buat Judul Deskriptif dengan AI", 
-                        handleGenerateTitle, 
-                        isGeneratingTitle, 
-                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>,
-                        "bg-purple-500 hover:bg-purple-400 text-white",
-                        "Generating Judul..."
-                    )}
-                </div>
+              </div>
+            ))}
+            <button onClick={addCharacter} className="w-full text-sm py-2 bg-brand-secondary hover:bg-brand-primary/20 rounded-md transition-colors">Tambah Karakter</button>
+          </div>
+        </Accordion>
+
+        {/* Scene Settings Section */}
+        <Accordion title={<h2 className="text-lg font-semibold text-brand-text">3. Pengaturan Suasana (Scene)</h2>} defaultOpen>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <input type="text" placeholder="Suasana (Mood)" value={sceneSettings.mood} onChange={(e) => updateSceneSetting('mood', e.target.value)} className="bg-brand-bg p-2 rounded-md border border-brand-primary/10" />
+                <input type="text" placeholder="Suara Latar Belakang" value={sceneSettings.backgroundSound} onChange={(e) => updateSceneSetting('backgroundSound', e.target.value)} className="bg-brand-bg p-2 rounded-md border border-brand-primary/10" />
+                <select value={sceneSettings.cameraAngle} onChange={(e) => updateSceneSetting('cameraAngle', e.target.value)} className="bg-brand-bg p-2 rounded-md border border-brand-primary/10">
+                    {cameraAngles.map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+                <select value={sceneSettings.graphicStyle} onChange={(e) => updateSceneSetting('graphicStyle', e.target.value)} className="bg-brand-bg p-2 rounded-md border border-brand-primary/10">
+                    {graphicStyles.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+                 <select value={sceneSettings.lighting} onChange={(e) => updateSceneSetting('lighting', e.target.value)} className="bg-brand-bg p-2 rounded-md border border-brand-primary/10">
+                    {lightings.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+                <button onClick={handleAutoGenerateScene} disabled={isGeneratingScene} className="text-sm px-2 py-2 bg-brand-secondary hover:bg-brand-primary/20 rounded-md transition-colors disabled:opacity-50">
+                    {isGeneratingScene ? 'Membuat...' : 'Generate Otomatis'}
+                </button>
             </div>
+        </Accordion>
 
-            {/* --- TIMELINE GENERATOR BUTTON --- */}
-            {renderAiButton(
-                "Generate Timeline & Klip dari Ide Cerita",
-                handleGenerateTimelineFromStory,
-                isGeneratingTimeline,
-                <span className="text-xl">✨</span>,
-                "w-full text-base bg-brand-accent hover:bg-yellow-400 text-black py-3",
-                "Generating Timeline..."
-            )}
+        <button
+            onClick={handleExportToBatchClick}
+            disabled={characters.length === 0 || clipSegments.length === 0}
+            className="w-full mt-4 px-6 py-4 bg-brand-primary text-black font-bold text-lg rounded-md hover:opacity-90 transition-all duration-200 disabled:bg-brand-secondary disabled:text-brand-text-muted/50 disabled:cursor-not-allowed shadow-lg shadow-brand-primary/20"
+        >
+          Siapkan Segmen Video
+        </button>
 
-            {/* --- CHARACTERS SECTION --- */}
-            <Accordion title={<h2 className="text-xl font-bold text-brand-text">1. Karakter</h2>}>
-                <div className="space-y-4">
-                    {characters.map((char, charIndex) => (
-                        <div key={char.id} className="bg-brand-bg/50 p-3 rounded-lg space-y-4">
-                            <div className="flex justify-between items-center w-full">
-                                <span className="font-semibold truncate">Karakter {charIndex + 1}: {char.name || 'Tanpa Nama'}</span>
-                                {characters.length > 1 && <button onClick={() => removeCharacter(char.id)} className="text-brand-text-muted hover:text-brand-primary text-sm z-10 relative font-normal shrink-0 ml-4 transition-colors" aria-label={`Hapus Karakter ${charIndex + 1}`}>Hapus</button>}
-                            </div>
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {renderInputField('Nama', char.name, e => updateCharacter(char.id, 'name', e.target.value), 'Nama Karakter')}
-                                    {renderInputField('Kebangsaan', char.nationality, e => updateCharacter(char.id, 'nationality', e.target.value))}
-                                    {renderTextareaField('Ciri Dasar', char.traits, e => updateCharacter(char.id, 'traits', e.target.value), 'Contoh: Pemberani, Cerdas, Pemalu')}
-                                    {renderTextareaField('Penampilan', char.appearance, e => updateCharacter(char.id, 'appearance', e.target.value), 'Deskripsi penampilan fisik karakter...')}
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    {renderSelectField('Jenis Suara', char.voice.type, e => updateVoiceSetting(char.id, 'type', e.target.value), voiceTypes)}
-                                    {renderSelectField('Pitch Nada', char.voice.pitch, e => updateVoiceSetting(char.id, 'pitch', e.target.value), pitches)}
-                                    {renderSelectField('Timbre', char.voice.timbre, e => updateVoiceSetting(char.id, 'timbre', e.target.value), timbres)}
-                                    {renderInputField('Deskripsi Suara (dari AI)', char.voice.consistency, e => updateVoiceSetting(char.id, 'consistency', e.target.value), 'Deskripsikan konsistensi...')}
-                                </div>
-                                <div className="space-y-3">
-                                    <h4 className="font-semibold text-brand-text-muted mt-4">Aksi & Dialog Berbasis Timestamp</h4>
-                                    {char.timeline.map(event => (
-                                        <div key={event.id} className="bg-brand-bg/80 p-3 rounded-lg space-y-2">
-                                            <div className="flex justify-between items-center"><span className="text-sm font-bold text-brand-accent">{event.type === 'action' ? 'Aksi' : 'Dialog'}</span><button onClick={() => removeTimelineEvent(char.id, event.id)} className="text-brand-text-muted hover:text-brand-primary text-xl font-bold transition-colors">&times;</button></div>
-                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 items-end">
-                                                {renderInputField('Mulai (s)', event.start, e => updateTimelineEvent(char.id, event.id, 'start', e.target.value), '', 'number')}
-                                                {renderInputField('Akhir (s)', event.end, e => updateTimelineEvent(char.id, event.id, 'end', e.target.value), '', 'number')}
-                                                <span className="text-xs text-brand-text-muted pb-2">Durasi: {calculateDuration(event.start, event.end)}s</span>
-                                            </div>
-                                            {event.type === 'action' ? renderTextareaField('Deskripsi Aksi', (event as ActionEvent).description, e => updateTimelineEvent(char.id, event.id, 'description', e.target.value)) : renderTextareaField('Teks Dialog', (event as DialogueEvent).text, e => updateTimelineEvent(char.id, event.id, 'text', e.target.value))}
-                                        </div>
-                                    ))}
-                                    <div className="flex gap-2">
-                                        <button onClick={() => addTimelineEvent(char.id, 'action')} className="flex-1 bg-brand-accent/80 hover:bg-brand-accent text-black text-sm font-bold py-2 px-4 rounded-md transition-colors">+ Tambah Aksi</button>
-                                        <button onClick={() => addTimelineEvent(char.id, 'dialogue')} className="flex-1 bg-brand-accent/80 hover:bg-brand-accent text-black text-sm font-bold py-2 px-4 rounded-md transition-colors">+ Tambah Dialog</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                    <button onClick={addCharacter} className="w-full mt-4 bg-brand-secondary hover:bg-brand-surface text-brand-text-muted font-semibold py-2 px-4 rounded-md transition-colors">+ Tambah Karakter</button>
-                </div>
-            </Accordion>
-            
-            <Accordion title={<h2 className="text-xl font-bold text-brand-text">2. Pengaturan Suasana</h2>}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {renderInputField('Suasana', sceneSettings.mood, e => updateSceneSetting('mood', e.target.value), 'Contoh: Tegang, Romantis, Menyenangkan')}
-                    {renderInputField('Suara Latar Belakang', sceneSettings.backgroundSound, e => updateSceneSetting('backgroundSound', e.target.value), 'Contoh: Hujan deras, Musik klasik')}
-                    {renderSelectField('Sudut Pandang Kamera', sceneSettings.cameraAngle, e => updateSceneSetting('cameraAngle', e.target.value), cameraAngles)}
-                    {renderSelectField('Gaya Grafis', sceneSettings.graphicStyle, e => updateSceneSetting('graphicStyle', e.target.value), graphicStyles)}
-                    {renderSelectField('Pencahayaan', sceneSettings.lighting, e => updateSceneSetting('lighting', e.target.value), lightings)}
-                </div>
-                {renderAiButton("Generate Otomatis", handleAutoGenerateScene, isGeneratingScene, 
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
-                    "bg-brand-accent/90 hover:bg-brand-accent text-black", "Generating Suasana..."
-                )}
-            </Accordion>
-
-            <Accordion title={<h2 className="text-xl font-bold text-brand-text">3. Penggabung Klip</h2>} defaultOpen>
-                <div className="space-y-3">
-                {clipSegments.map((segment, index) => (
-                    <div key={segment.id} className="flex items-end gap-2 bg-brand-bg/50 p-3 rounded-lg">
-                        <span className="text-brand-text-muted font-mono text-sm pt-1 mr-2">{index + 1}</span>
-                        <div className="flex-grow">{renderInputField('Mulai (detik)', segment.startTime, e => updateClipSegment(segment.id, 'startTime', e.target.value), '', 'number')}</div>
-                        <div className="flex-grow">{renderInputField('Akhir (detik)', segment.endTime, e => updateClipSegment(segment.id, 'endTime', e.target.value), '', 'number')}</div>
-                        
-                        {calculateDuration(segment.startTime, segment.endTime) > 8 && (
-                            <div className="text-yellow-400 text-xs pb-2 flex items-center gap-1" title="Durasi lebih dari 8 detik. Video yang dihasilkan mungkin akan dipotong.">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8.257 3.099c.636-1.21 2.852-1.21 3.488 0l6.233 11.916c.64 1.222-.27 2.735-1.744 2.735H3.768c-1.474 0-2.384-1.513-1.744-2.735L8.257 3.099zM10 6a1 1 0 011 1v4a1 1 0 11-2 0V7a1 1 0 011-1zm1 8a1 1 0 10-2 0 1 1 0 002 0z" clipRule="evenodd" /></svg>
-                                <span>&gt;8d</span>
-                            </div>
-                        )}
-
-                        <button onClick={() => removeClipSegment(segment.id)} className="p-2 text-brand-text-muted hover:text-brand-primary rounded-md hover:bg-brand-secondary/50 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
-                    </div>
-                ))}
-                <button onClick={addClipSegment} className="w-full mt-2 bg-brand-accent/80 hover:bg-brand-accent text-black font-bold py-2 px-4 rounded-md transition-colors">+ Tambah Segmen Klip</button>
-                </div>
-            </Accordion>
-        </div>
-
-        {/* --- RIGHT COLUMN: OUTPUT CANVAS --- */}
-        <div className="lg:col-span-2 relative">
-            <div className="lg:sticky lg:top-8 h-fit">
-                <h2 className="text-xl font-bold text-brand-text mb-4">Prompt Canvas</h2>
-                <div className="bg-brand-surface rounded-lg shadow-inner h-[70vh] lg:h-[calc(100vh-18rem)] border border-brand-primary/20">
-                    <pre className="whitespace-pre-wrap break-words text-sm p-4 overflow-y-auto text-brand-text-muted h-full w-full rounded-lg">{canvasOutput}</pre>
-                </div>
+      </div>
+      
+      {/* --- RIGHT: CANVAS/OUTPUT --- */}
+      <div className="hidden lg:flex flex-col h-full">
+         <div className="bg-brand-surface rounded-lg border border-brand-primary/20 flex flex-col flex-grow">
+            <div className="flex justify-between items-center p-4 border-b border-brand-primary/20">
+                 <h2 className="text-lg font-semibold text-brand-text">Canvas Prompt</h2>
+                 <button onClick={copyCanvasToClipboard} className="text-sm px-3 py-1 bg-brand-secondary rounded-md hover:bg-brand-primary/20 transition-colors">{copyButtonText}</button>
             </div>
-        </div>
-
-        {/* --- FOOTER ACTIONS --- */}
-        <div className="fixed bottom-0 left-0 right-0 bg-brand-surface/80 backdrop-blur-sm border-t border-brand-primary/20 p-4 z-10">
-            <div className="container mx-auto flex flex-col md:flex-row justify-end items-center gap-6 px-4">
-                <button onClick={handleCopyCanvas} className="w-full md:w-auto px-6 py-2 bg-brand-secondary text-brand-text-muted font-semibold rounded-md hover:bg-brand-surface transition-colors">{copyButtonText}</button>
-                <button onClick={handleExportToBatchClick} className="w-full md:w-auto px-8 py-2 bg-brand-primary text-black font-bold rounded-md hover:opacity-90 transition-colors shadow-lg shadow-brand-primary/20">Ekspor ke Batch</button>
-            </div>
-        </div>
+            <textarea
+                readOnly
+                value={canvasOutput}
+                className="w-full h-full bg-brand-bg/50 p-4 text-xs font-mono text-brand-text-muted resize-none focus:outline-none"
+                placeholder="Hasil prompt akan muncul di sini..."
+            />
+         </div>
+      </div>
     </div>
   );
 };
