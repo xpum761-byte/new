@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, DragEvent, ChangeEvent, useRef } from 'react';
 
 interface ImageDropzoneProps {
