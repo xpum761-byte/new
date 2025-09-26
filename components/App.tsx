@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { Footer } from './Footer';
@@ -111,20 +112,22 @@ const App: React.FC = () => {
                         model: string;
                         prompt: string;
                         image?: { imageBytes: string; mimeType: string; };
+                        speech?: { tts: { text: string; } };
                         config: { 
                             numberOfVideos: number;
-                            audio?: { tts: { text: string } };
+                            aspectRatio: string;
                         };
                     } = {
-                        model: 'veo-3.0-fast-generate-001',
+                        model: 'veo-2.0-generate-001',
                         prompt: segment.prompt,
                         config: { 
                             numberOfVideos: 1,
+                            aspectRatio: segment.aspectRatio,
                         }
                     };
                     
                     if (segment.dialogue && segment.dialogue.trim() !== '') {
-                        generationPayload.config.audio = { tts: { text: segment.dialogue } };
+                        generationPayload.speech = { tts: { text: segment.dialogue } };
                     }
 
                     if (segment.startImage) {
