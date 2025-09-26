@@ -116,7 +116,7 @@ const App: React.FC = () => {
                             audio?: { tts: { text: string } };
                         };
                     } = {
-                        model: 'veo-2.0-generate-001',
+                        model: 'veo-3.0-fast-generate-001',
                         prompt: segment.prompt,
                         config: { 
                             numberOfVideos: 1,
