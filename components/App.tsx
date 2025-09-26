@@ -1,13 +1,13 @@
 
 
 
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { Footer } from './Footer';
 import { VideoGeneratorTab } from './VideoGeneratorTab';
 import { ImageGeneratorTab } from './ImageGeneratorTab';
 import { PromptGeneratorTab, createNewCharacter, initialSceneSettings } from './PromptGeneratorTab';
-import { SettingsModal } from './SettingsModal';
 import { Tab, Character, SceneSettings, ClipSegment, VideoSegment } from '../types';
 import type { GenerationState } from '../types';
 import { Header } from './Header';
@@ -31,8 +31,6 @@ const fileToBase64 = (file: File): Promise<string> => {
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.PROMPT_GENERATOR);
-  const [apiKey, setApiKey] = useState<string>(() => localStorage.getItem('geminiApiKey') || '');
-  const [isSettingsOpen, setSettingsOpen] = useState(false);
 
   // State for VideoGeneratorTab
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>([]);
@@ -57,16 +55,6 @@ const App: React.FC = () => {
     status: 'idle',
   });
 
-  useEffect(() => {
-    // Persist API key to local storage
-    localStorage.setItem('geminiApiKey', apiKey);
-  }, [apiKey]);
-
-  const handleSaveSettings = (newApiKey: string) => {
-    setApiKey(newApiKey);
-    setSettingsOpen(false);
-  };
-
   const handleExportToBatch = (segmentData: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'>[]) => {
     const newSegments: VideoSegment[] = segmentData.map(data => ({
         ...data,
@@ -78,15 +66,11 @@ const App: React.FC = () => {
   };
 
   const handleGenerate = async () => {
-    if (generationState.isGenerating || !apiKey) {
-        if (!apiKey) {
-            alert("Please set your Gemini API key in settings first.");
-            setSettingsOpen(true);
-        }
+    if (generationState.isGenerating) {
         return;
     }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     // --- VIDEO GENERATOR LOGIC ---
     if (activeTab === Tab.VIDEO_GENERATOR) {
@@ -111,7 +95,7 @@ const App: React.FC = () => {
                             audio?: { tts: { text: string } };
                         };
                     } = {
-                        model: 'veo-3.0-fast-generate-001',
+                        model: 'veo-2.0-generate-001',
                         prompt: segment.prompt,
                         config: { 
                             numberOfVideos: 1,
@@ -142,7 +126,7 @@ const App: React.FC = () => {
 
                     if (operation.response?.generatedVideos?.[0]?.video?.uri) {
                         const downloadLink = operation.response.generatedVideos[0].video.uri;
-                        const videoResponse = await fetch(`${downloadLink}&key=${apiKey}`);
+                        const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
                         if (!videoResponse.ok) throw new Error(`Failed to download video from URI. Status: ${videoResponse.status}`);
                         
                         const videoBlob = await videoResponse.blob();
@@ -257,8 +241,6 @@ const App: React.FC = () => {
             setSceneSettings={setSceneSettings}
             clipSegments={clipSegments}
             setClipSegments={setClipSegments}
-            apiKey={apiKey}
-            openSettings={() => setSettingsOpen(true)}
           />
         );
       default:
@@ -276,7 +258,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen font-sans">
-      <Header activeTab={activeTab} setActiveTab={setActiveTab} onSettingsClick={() => setSettingsOpen(true)} />
+      <Header activeTab={activeTab} setActiveTab={setActiveTab} />
       
       <main className="flex-grow container mx-auto p-4 overflow-y-auto">
         {renderActiveTab()}
@@ -290,12 +272,6 @@ const App: React.FC = () => {
          />
       )}
       
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        onSave={handleSaveSettings}
-        currentApiKey={apiKey}
-      />
     </div>
   );
 };
