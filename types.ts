@@ -1,7 +1,4 @@
 
-
-
-
 export enum Tab {
   VIDEO_GENERATOR = 'video_generator',
   IMAGE_GENERATOR = 'image_generator',
@@ -75,6 +72,7 @@ export interface ClipSegment {
 }
 
 export interface PromptGeneratorTabProps {
+  apiKey: string;
   onExportToBatch: (segments: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'>[]) => void;
   characters: Character[];
   setCharacters: React.Dispatch<React.SetStateAction<Character[]>>;
