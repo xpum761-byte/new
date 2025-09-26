@@ -1,4 +1,5 @@
 
+
 import React, { useState, ChangeEvent, useEffect, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
@@ -45,14 +46,24 @@ const Accordion: React.FC<{ title: React.ReactNode; children: React.ReactNode; d
 
 
 // --- INITIAL STATE HELPERS (EXPORTED) ---
-export const createNewTimelineEvent = (type: 'action' | 'dialogue'): TimelineEvent => ({
-  id: crypto.randomUUID(),
-  type,
-  start: '',
-  end: '',
-  description: '',
-  text: '',
-} as ActionEvent | DialogueEvent);
+export const createNewTimelineEvent = (type: 'action' | 'dialogue'): TimelineEvent => {
+  if (type === 'action') {
+    return {
+      id: crypto.randomUUID(),
+      type: 'action',
+      start: '',
+      end: '',
+      description: '',
+    };
+  }
+  return {
+    id: crypto.randomUUID(),
+    type: 'dialogue',
+    start: '',
+    end: '',
+    text: '',
+  };
+};
 
 export const createNewCharacter = (): Character => ({
   id: crypto.randomUUID(),
@@ -490,11 +501,6 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
             const actionDescription = visualActions.join(' ');
             const dialogueContext = dialogueLines.join(' ');
 
-            if (!actionDescription && !sceneSettings.mood) {
-                // If there are no actions and no mood, we can't generate a meaningful prompt. Skip this segment.
-                return null;
-            }
-
             const directorPrompt = `Anda adalah seorang sutradara video AI. Tugas Anda adalah menulis satu prompt visual yang sinematik, deskriptif, dan koheren untuk segmen video berdurasi 8 detik. HANYA FOKUS PADA VISUAL. Jangan mendeskripsikan suara atau dialog.
 Berdasarkan konteks berikut, buatlah prompt visual yang menarik.
 
@@ -525,8 +531,8 @@ Tulis HANYA prompt visualnya saja.`;
         const resolvedSegments = await Promise.all(segmentPromises);
         const validSegments = resolvedSegments.filter((segment): segment is Omit<VideoSegment, 'id' | 'status' | 'videoUrl'> => segment !== null);
 
-        if (validSegments.length === 0) {
-            alert("Tidak ada aksi yang ditemukan dalam segmen waktu yang ditentukan untuk menghasilkan prompt. Pastikan timeline karakter Anda sudah terisi dengan aksi.");
+        if (validSegments.length === 0 && clipSegments.length > 0) {
+            alert("Tidak ada aksi atau informasi yang cukup ditemukan dalam segmen waktu yang ditentukan untuk menghasilkan prompt. Pastikan timeline karakter Anda sudah terisi dengan aksi atau suasana adegan sudah diatur.");
             return;
         }
 
@@ -621,6 +627,70 @@ Tulis HANYA prompt visualnya saja.`;
                     {timbres.map(t => <option key={t} value={t}>{t}</option>)}
                      <option value="N/A">N/A (Bukan Manusia)</option>
                   </select>
+                </div>
+                 {/* Timeline Section */}
+                <div className="mt-4 pt-4 border-t border-brand-secondary">
+                    <h4 className="text-sm font-semibold uppercase text-brand-text-muted mb-2">Timeline</h4>
+                    <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                    {char.timeline.length === 0 && (
+                        <p className="text-xs text-brand-text-muted text-center py-4">Belum ada event. Tambahkan aksi atau dialog.</p>
+                    )}
+                    {char.timeline
+                        .sort((a, b) => parseFloat(a.start) - parseFloat(b.start))
+                        .map(event => (
+                        <div key={event.id} className="bg-brand-bg p-3 rounded-md border border-brand-primary/10">
+                            <div className="flex justify-between items-center mb-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-brand-accent">{event.type}</span>
+                            <button onClick={() => removeTimelineEvent(char.id, event.id)} className="text-brand-text-muted hover:text-red-500 transition-colors p-1 rounded-full">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mb-2">
+                            <input 
+                                type="text" 
+                                placeholder="Mulai (d)" 
+                                value={event.start} 
+                                onChange={(e) => updateTimelineEvent(char.id, event.id, 'start', e.target.value)} 
+                                className="w-full bg-brand-bg/50 border border-brand-primary/10 rounded-md p-2 text-xs" 
+                            />
+                            <input 
+                                type="text" 
+                                placeholder="Selesai (d)" 
+                                value={event.end} 
+                                onChange={(e) => updateTimelineEvent(char.id, event.id, 'end', e.target.value)} 
+                                className="w-full bg-brand-bg/50 border border-brand-primary/10 rounded-md p-2 text-xs" 
+                            />
+                            </div>
+                            {event.type === 'action' ? (
+                            <textarea 
+                                placeholder="Deskripsi aksi..." 
+                                value={(event as ActionEvent).description} 
+                                onChange={(e) => updateTimelineEvent(char.id, event.id, 'description', e.target.value)}
+                                rows={2}
+                                className="w-full bg-brand-bg/50 border border-brand-primary/10 rounded-md p-2 text-xs resize-y"
+                            />
+                            ) : (
+                            <textarea 
+                                placeholder="Teks dialog..." 
+                                value={(event as DialogueEvent).text} 
+                                onChange={(e) => updateTimelineEvent(char.id, event.id, 'text', e.target.value)}
+                                rows={2}
+                                className="w-full bg-brand-bg/50 border border-brand-primary/10 rounded-md p-2 text-xs resize-y"
+                            />
+                            )}
+                        </div>
+                        ))}
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                    <button onClick={() => addTimelineEvent(char.id, 'action')} className="flex-1 text-xs py-2 bg-brand-secondary hover:bg-brand-primary/20 rounded-md transition-colors">
+                        + Tambah Aksi
+                    </button>
+                    <button onClick={() => addTimelineEvent(char.id, 'dialogue')} className="flex-1 text-xs py-2 bg-brand-secondary hover:bg-brand-primary/20 rounded-md transition-colors">
+                        + Tambah Dialog
+                    </button>
+                    </div>
                 </div>
               </div>
             ))}
