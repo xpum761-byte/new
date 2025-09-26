@@ -1,5 +1,4 @@
 
-
 import React, { useState, ChangeEvent, useEffect, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
@@ -29,7 +28,7 @@ const Accordion: React.FC<{ title: React.ReactNode; children: React.ReactNode; d
           xmlns="http://www.w3.org/2000/svg"
           className={`w-5 h-5 transition-transform duration-300 shrink-0 ml-4 ${isOpen ? 'rotate-180' : ''}`}
           fill="none"
-          viewBox="0 0 24 24"
+          viewBox="0 0 24"
           stroke="currentColor"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
@@ -111,8 +110,6 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({
   setSceneSettings,
   clipSegments,
   setClipSegments,
-  apiKey,
-  openSettings,
 }) => {
   const [canvasOutput, setCanvasOutput] = useState('');
   const [copyButtonText, setCopyButtonText] = useState('Salin Canvas');
@@ -126,6 +123,7 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({
   const [isGeneratingScene, setIsGeneratingScene] = useState(false);
   const [isGeneratingNarrative, setIsGeneratingNarrative] = useState(false);
   const [isEstimatingScenes, setIsEstimatingScenes] = useState(false);
+  const [isPreparingSegments, setIsPreparingSegments] = useState(false);
 
 
   // --- CHARACTER HANDLERS ---
@@ -176,11 +174,10 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({
   
   // --- AI GENERATION FUNCTIONS ---
   const handleEstimateScenes = async () => {
-    if (!apiKey) { alert("Please set your Gemini API key in the settings first."); openSettings(); return; }
     if (!storyIdea) { alert("Please provide a story idea to estimate scenes."); return; }
     setIsEstimatingScenes(true);
     try {
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const prompt = `Berdasarkan ide cerita berikut, perkirakan berapa banyak segmen video berdurasi 8 detik yang dibutuhkan untuk menceritakannya secara efektif. Berikan hanya angkanya saja, tidak lebih.
 
 Cerita: "${storyIdea}"`;
@@ -200,11 +197,10 @@ Cerita: "${storyIdea}"`;
   };
 
   const handleGenerateNarrative = async () => {
-    if (!apiKey) { alert("Please set your Gemini API key in the settings first."); openSettings(); return; }
     if (!storyIdea) { alert("Please provide a story idea first."); return; }
     setIsGeneratingNarrative(true);
     try {
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const prompt = `Berdasarkan ide cerita berikut, kembangkan menjadi sebuah narasi cerita pendek yang lengkap dan menarik, cocok untuk sebuah video. Buatlah alur yang jelas (awal, tengah, akhir) dan deskriptif.
 
 Ide Cerita: "${storyIdea}"
@@ -221,11 +217,10 @@ Narasi Lengkap:`;
   };
 
   const handleGenerateTitle = async () => {
-    if (!apiKey) { alert("Please set your Gemini API key in the settings first."); openSettings(); return; }
     if (!storyIdea) { alert("Please provide a story idea first."); return; }
     setIsGeneratingTitle(true);
     try {
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const prompt = `Based on the following story idea, create a short, descriptive, and catchy title.\n\nStory Idea: "${storyIdea}"\n\nTitle:`;
         const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt });
         const title = response.text.trim().replace(/"/g, '');
@@ -239,12 +234,11 @@ Narasi Lengkap:`;
   };
 
   const handleGenerateTimelineFromStory = async () => {
-    if (!apiKey) { alert("Please set your Gemini API key in the settings first."); openSettings(); return; }
     if (!storyIdea) { alert("Please provide a story idea first."); return; }
     
     setIsGeneratingTimeline(true);
     try {
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         
         const sceneCount = parseInt(numberOfScenes, 10) || 1;
         const totalDuration = sceneCount * 8;
@@ -353,10 +347,9 @@ TUGAS:
   };
 
   const handleAutoGenerateScene = async () => {
-    if (!apiKey) { alert("Please set your Gemini API key in the settings first."); openSettings(); return; }
     setIsGeneratingScene(true);
     try {
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `Buatkan satu set pengaturan suasana yang kreatif dan konsisten untuk sebuah prompt video. Berikan objek JSON dengan kunci-kunci berikut: "mood", "backgroundSound", "cameraAngle", "graphicStyle", dan "lighting". Nilai untuk cameraAngle, graphicStyle, dan lighting HARUS dipilih dari daftar yang tersedia.
 
 Daftar Sudut Pandang Kamera: ${cameraAngles.join(', ')}
@@ -453,53 +446,91 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
     });
   };
 
- const handleExportToBatchClick = () => {
-    const segments: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'>[] = clipSegments.map(clip => {
-        const startTime = parseFloat(clip.startTime);
-        const endTime = parseFloat(clip.endTime);
+ const handleExportToBatchClick = async () => {
+    if (isPreparingSegments) return;
 
-        let visualActions: string[] = [];
-        let dialogueLines: string[] = [];
-
-        characters.forEach(char => {
-            char.timeline.forEach(event => {
-                const eventStart = parseFloat(event.start);
-                const eventEnd = parseFloat(event.end);
-                
-                // Check if the event overlaps with the current clip's time range
-                if (Math.max(startTime, eventStart) < Math.min(endTime, eventEnd)) {
-                    if (event.type === 'action' && event.description) {
-                        visualActions.push(`${char.name} ${event.description}.`);
-                    } else if (event.type === 'dialogue' && (event as DialogueEvent).text) {
-                        dialogueLines.push(`${char.name}: "${(event as DialogueEvent).text}"`);
-                    }
-                }
-            });
-        });
-        
-        // Construct the final prompt for the segment
-        const sceneDescription = `Gaya visual: ${sceneSettings.graphicStyle}. Pencahayaan: ${sceneSettings.lighting}. Sudut pandang kamera: ${sceneSettings.cameraAngle}. Suasana: ${sceneSettings.mood}.`;
-        const actionDescription = visualActions.join(' ');
-        
-        const finalPrompt = `${sceneDescription} ${actionDescription}`.trim();
-        const finalDialogue = dialogueLines.join('\n');
-
-        // FIX: Explicitly type the returned object to solve type inference issues in the downstream .filter() and variable assignment.
-        const segmentData: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'> = {
-            prompt: finalPrompt,
-            dialogue: finalDialogue,
-            aspectRatio: '16:9', // Default aspect ratio
-            mode: 'transition',
-        };
-        return segmentData;
-    }).filter((segment): segment is Omit<VideoSegment, 'id' | 'status' | 'videoUrl'> => segment.prompt.length > 0 || (segment.dialogue != null && segment.dialogue.length > 0));
-
-    if (segments.length === 0) {
-        alert("Tidak ada aksi atau dialog yang ditemukan dalam segmen waktu yang ditentukan. Pastikan timeline karakter Anda sudah terisi.");
+    if (clipSegments.length === 0) {
+        alert("Silakan tambahkan segmen klip terlebih dahulu.");
         return;
     }
-    
-    onExportToBatch(segments);
+
+    setIsPreparingSegments(true);
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+        const segmentPromises = clipSegments.map(async (clip) => {
+            const startTime = parseFloat(clip.startTime);
+            const endTime = parseFloat(clip.endTime);
+
+            let visualActions: string[] = [];
+            let dialogueLines: string[] = [];
+
+            characters.forEach(char => {
+                char.timeline.forEach(event => {
+                    const eventStart = parseFloat(event.start);
+                    const eventEnd = parseFloat(event.end);
+                    if (Math.max(startTime, eventStart) < Math.min(endTime, eventEnd)) {
+                        if (event.type === 'action' && event.description) {
+                            visualActions.push(`${char.name} ${event.description}.`);
+                        } else if (event.type === 'dialogue' && (event as DialogueEvent).text) {
+                            dialogueLines.push(`${char.name}: "${(event as DialogueEvent).text}"`);
+                        }
+                    }
+                });
+            });
+
+            const sceneDescription = `Gaya visual: ${sceneSettings.graphicStyle}. Pencahayaan: ${sceneSettings.lighting}. Sudut pandang kamera: ${sceneSettings.cameraAngle}. Suasana: ${sceneSettings.mood}.`;
+            const actionDescription = visualActions.join(' ');
+            const dialogueContext = dialogueLines.join(' ');
+
+            if (!actionDescription && !sceneSettings.mood) {
+                // If there are no actions and no mood, we can't generate a meaningful prompt. Skip this segment.
+                return null;
+            }
+
+            const directorPrompt = `Anda adalah seorang sutradara video AI. Tugas Anda adalah menulis satu prompt visual yang sinematik, deskriptif, dan koheren untuk segmen video berdurasi 8 detik. HANYA FOKUS PADA VISUAL. Jangan mendeskripsikan suara atau dialog.
+Berdasarkan konteks berikut, buatlah prompt visual yang menarik.
+
+**Konteks:**
+*   **Pengaturan Adegan:** ${sceneDescription}
+*   **Aksi Karakter:** ${actionDescription || 'Tidak ada aksi spesifik, fokus pada suasana.'}
+*   **Konteks Dialog (sebagai referensi untuk ekspresi/mood visual, jangan dimasukkan ke dalam prompt):** ${dialogueContext || 'Tidak ada'}
+
+Tulis HANYA prompt visualnya saja.`;
+
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: directorPrompt,
+            });
+
+            const finalPrompt = response.text.trim();
+            const finalDialogue = dialogueLines.join('\n');
+
+            const segmentData: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'> = {
+                prompt: finalPrompt,
+                dialogue: finalDialogue,
+                aspectRatio: '16:9',
+                mode: 'transition',
+            };
+            return segmentData;
+        });
+
+        const resolvedSegments = await Promise.all(segmentPromises);
+        const validSegments = resolvedSegments.filter((segment): segment is Omit<VideoSegment, 'id' | 'status' | 'videoUrl'> => segment !== null);
+
+        if (validSegments.length === 0) {
+            alert("Tidak ada aksi yang ditemukan dalam segmen waktu yang ditentukan untuk menghasilkan prompt. Pastikan timeline karakter Anda sudah terisi dengan aksi.");
+            return;
+        }
+
+        onExportToBatch(validSegments);
+
+    } catch (error) {
+        console.error("Error preparing video segments:", error);
+        alert(`Gagal mempersiapkan segmen video. ${error instanceof Error ? error.message : 'Unknown error'}. Lihat konsol untuk detail.`);
+    } finally {
+        setIsPreparingSegments(false);
+    }
 };
 
 
@@ -612,10 +643,20 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
 
         <button
             onClick={handleExportToBatchClick}
-            disabled={characters.length === 0 || clipSegments.length === 0}
-            className="w-full mt-4 px-6 py-4 bg-brand-primary text-black font-bold text-lg rounded-md hover:opacity-90 transition-all duration-200 disabled:bg-brand-secondary disabled:text-brand-text-muted/50 disabled:cursor-not-allowed shadow-lg shadow-brand-primary/20"
+            disabled={characters.length === 0 || clipSegments.length === 0 || isPreparingSegments}
+            className="w-full mt-4 px-6 py-4 bg-brand-primary text-black font-bold text-lg rounded-md hover:opacity-90 transition-all duration-200 disabled:bg-brand-secondary disabled:text-brand-text-muted/50 disabled:cursor-not-allowed shadow-lg shadow-brand-primary/20 flex items-center justify-center"
         >
-          Siapkan Segmen Video
+          {isPreparingSegments ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-black" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Mempersiapkan Segmen...
+              </>
+          ) : (
+            'Siapkan Segmen Video'
+          )}
         </button>
 
       </div>
