@@ -1,7 +1,4 @@
 
-
-
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { GoogleGenAI, Modality } from "@google/genai";
 import { Footer } from './Footer';
@@ -11,6 +8,7 @@ import { PromptGeneratorTab, createNewCharacter, initialSceneSettings } from './
 import { Tab, Character, SceneSettings, ClipSegment, VideoSegment } from '../types';
 import type { GenerationState } from '../types';
 import { Header } from './Header';
+import { SettingsModal } from './SettingsModal';
 
 // Helper to convert File to Base64
 const fileToBase64 = (file: File): Promise<string> => {
@@ -31,6 +29,8 @@ const fileToBase64 = (file: File): Promise<string> => {
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.PROMPT_GENERATOR);
+  const [apiKey, setApiKey] = useState<string>('');
+  const [openSettings, setOpenSettings] = useState<boolean>(false);
 
   // State for VideoGeneratorTab
   const [videoSegments, setVideoSegments] = useState<VideoSegment[]>([]);
@@ -54,6 +54,21 @@ const App: React.FC = () => {
     message: '',
     status: 'idle',
   });
+  
+  useEffect(() => {
+    const storedApiKey = localStorage.getItem('gemini-api-key');
+    if (storedApiKey) {
+        setApiKey(storedApiKey);
+    } else {
+        setOpenSettings(true);
+    }
+  }, []);
+
+  const handleSaveSettings = (newApiKey: string) => {
+    setApiKey(newApiKey);
+    localStorage.setItem('gemini-api-key', newApiKey);
+    setOpenSettings(false);
+  };
 
   const handleExportToBatch = (segmentData: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'>[]) => {
     const newSegments: VideoSegment[] = segmentData.map(data => ({
@@ -69,8 +84,14 @@ const App: React.FC = () => {
     if (generationState.isGenerating) {
         return;
     }
+    
+    if (!apiKey) {
+        alert("Please set your API Key in the settings.");
+        setOpenSettings(true);
+        return;
+    }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey: apiKey });
 
     // --- VIDEO GENERATOR LOGIC ---
     if (activeTab === Tab.VIDEO_GENERATOR) {
@@ -126,7 +147,7 @@ const App: React.FC = () => {
 
                     if (operation.response?.generatedVideos?.[0]?.video?.uri) {
                         const downloadLink = operation.response.generatedVideos[0].video.uri;
-                        const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+                        const videoResponse = await fetch(`${downloadLink}&key=${apiKey}`);
                         if (!videoResponse.ok) throw new Error(`Failed to download video from URI. Status: ${videoResponse.status}`);
                         
                         const videoBlob = await videoResponse.blob();
@@ -234,6 +255,7 @@ const App: React.FC = () => {
       case Tab.PROMPT_GENERATOR:
         return (
           <PromptGeneratorTab
+            apiKey={apiKey}
             onExportToBatch={handleExportToBatch}
             characters={characters}
             setCharacters={setCharacters}
@@ -258,7 +280,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen font-sans">
-      <Header activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Header activeTab={activeTab} setActiveTab={setActiveTab} onSettingsClick={() => setOpenSettings(true)} />
       
       <main className="flex-grow container mx-auto p-4 overflow-y-auto">
         {renderActiveTab()}
@@ -271,6 +293,13 @@ const App: React.FC = () => {
           buttonText={getFooterButtonText()}
          />
       )}
+
+      <SettingsModal
+        isOpen={openSettings}
+        onClose={() => setOpenSettings(false)}
+        onSave={handleSaveSettings}
+        currentApiKey={apiKey}
+      />
       
     </div>
   );

@@ -103,6 +103,7 @@ const topics = [
 ];
 
 export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ 
+  apiKey,
   onExportToBatch, 
   characters,
   setCharacters,
@@ -175,9 +176,10 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({
   // --- AI GENERATION FUNCTIONS ---
   const handleEstimateScenes = async () => {
     if (!storyIdea) { alert("Please provide a story idea to estimate scenes."); return; }
+    if (!apiKey) { alert("Please set your API Key in the settings."); return; }
     setIsEstimatingScenes(true);
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = new GoogleGenAI({ apiKey: apiKey });
         const prompt = `Berdasarkan ide cerita berikut, perkirakan berapa banyak segmen video berdurasi 8 detik yang dibutuhkan untuk menceritakannya secara efektif. Berikan hanya angkanya saja, tidak lebih.
 
 Cerita: "${storyIdea}"`;
@@ -198,9 +200,10 @@ Cerita: "${storyIdea}"`;
 
   const handleGenerateNarrative = async () => {
     if (!storyIdea) { alert("Please provide a story idea first."); return; }
+    if (!apiKey) { alert("Please set your API Key in the settings."); return; }
     setIsGeneratingNarrative(true);
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = new GoogleGenAI({ apiKey: apiKey });
         const prompt = `Berdasarkan ide cerita berikut, kembangkan menjadi sebuah narasi cerita pendek yang lengkap dan menarik, cocok untuk sebuah video. Buatlah alur yang jelas (awal, tengah, akhir) dan deskriptif.
 
 Ide Cerita: "${storyIdea}"
@@ -218,10 +221,11 @@ Narasi Lengkap:`;
 
   const handleGenerateTitle = async () => {
     if (!storyIdea) { alert("Please provide a story idea first."); return; }
+    if (!apiKey) { alert("Please set your API Key in the settings."); return; }
     setIsGeneratingTitle(true);
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const prompt = `Based on the following story idea, create a short, descriptive, and catchy title.\n\nStory Idea: "${storyIdea}"\n\nTitle:`;
+        const ai = new GoogleGenAI({ apiKey: apiKey });
+        const prompt = `Berdasarkan ide cerita berikut, buatlah sebuah judul yang singkat, deskriptif, dan menarik.\n\nIde Cerita: "${storyIdea}"\n\nJudul:`;
         const response = await ai.models.generateContent({ model: "gemini-2.5-flash", contents: prompt });
         const title = response.text.trim().replace(/"/g, '');
         setStoryIdea(`Judul: ${title}\n\n${storyIdea}`);
@@ -235,10 +239,11 @@ Narasi Lengkap:`;
 
   const handleGenerateTimelineFromStory = async () => {
     if (!storyIdea) { alert("Please provide a story idea first."); return; }
+    if (!apiKey) { alert("Please set your API Key in the settings."); return; }
     
     setIsGeneratingTimeline(true);
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = new GoogleGenAI({ apiKey: apiKey });
         
         const sceneCount = parseInt(numberOfScenes, 10) || 1;
         const totalDuration = sceneCount * 8;
@@ -347,9 +352,10 @@ TUGAS:
   };
 
   const handleAutoGenerateScene = async () => {
+    if (!apiKey) { alert("Please set your API Key in the settings."); return; }
     setIsGeneratingScene(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: apiKey });
       const prompt = `Buatkan satu set pengaturan suasana yang kreatif dan konsisten untuk sebuah prompt video. Berikan objek JSON dengan kunci-kunci berikut: "mood", "backgroundSound", "cameraAngle", "graphicStyle", dan "lighting". Nilai untuk cameraAngle, graphicStyle, dan lighting HARUS dipilih dari daftar yang tersedia.
 
 Daftar Sudut Pandang Kamera: ${cameraAngles.join(', ')}
@@ -448,6 +454,7 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
 
  const handleExportToBatchClick = async () => {
     if (isPreparingSegments) return;
+    if (!apiKey) { alert("Please set your API Key in the settings."); return; }
 
     if (clipSegments.length === 0) {
         alert("Silakan tambahkan segmen klip terlebih dahulu.");
@@ -456,7 +463,7 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
 
     setIsPreparingSegments(true);
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = new GoogleGenAI({ apiKey: apiKey });
 
         const segmentPromises = clipSegments.map(async (clip) => {
             const startTime = parseFloat(clip.startTime);
