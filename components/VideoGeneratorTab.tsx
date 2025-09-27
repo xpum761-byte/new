@@ -1,12 +1,31 @@
 
+
 import React, { ChangeEvent, useRef } from 'react';
+import { GoogleGenAI, Type } from "@google/genai";
 import type { VideoSegment } from '../types';
 import { ImageDropzone } from './ImageDropzone';
 
 interface VideoGeneratorTabProps {
   segments: VideoSegment[];
   setSegments: React.Dispatch<React.SetStateAction<VideoSegment[]>>;
+  apiKey: string;
 }
+
+// Helper to convert File to Base64
+const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+            if (typeof reader.result === 'string') {
+                resolve(reader.result.split(',')[1]);
+            } else {
+                reject(new Error('Failed to read file as base64 string.'));
+            }
+        };
+        reader.onerror = error => reject(error);
+    });
+};
 
 const StatusIcon: React.FC<{ status: VideoSegment['status'] }> = ({ status }) => {
     switch (status) {
@@ -22,13 +41,13 @@ const StatusIcon: React.FC<{ status: VideoSegment['status'] }> = ({ status }) =>
 };
 
 
-export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, setSegments }) => {
+export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, setSegments, apiKey }) => {
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
   const videoAspectRatios = ['16:9', '9:16', '4:3', '1:1', '4:5'];
 
   const addSegment = () => {
-    setSegments([...segments, { id: crypto.randomUUID(), prompt: '', dialogue: '', startImage: undefined, videoUrl: undefined, status: 'idle', aspectRatio: '16:9', mode: 'transition' }]);
+    setSegments([...segments, { id: crypto.randomUUID(), prompt: '', dialogue: '', speaker: '', startImage: undefined, videoUrl: undefined, status: 'idle', aspectRatio: '16:9', mode: 'transition' }]);
   };
 
   const removeSegment = (id: string) => {
@@ -57,6 +76,52 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleAnalyzeImage = async (id: string) => {
+    const segment = segments.find(s => s.id === id);
+    if (!segment || !segment.startImage || !apiKey) {
+        alert("Gambar atau API Key tidak ditemukan.");
+        return;
+    }
+
+    updateSegment(id, { isAnalyzing: true });
+    
+    try {
+        const ai = new GoogleGenAI({ apiKey });
+        const base64Image = await fileToBase64(segment.startImage);
+        const imagePart = { inlineData: { mimeType: segment.startImage.type, data: base64Image } };
+        const textPart = { text: "Analisis gambar ini. Berikan objek JSON dengan kunci `visualDescription` (deskripsi visual singkat dari subjek utama untuk prompt video) dan `speakerDescription` (deskripsi singkat dari kemungkinan pembicara utama, misal: 'seorang anak kecil', 'seorang wanita dewasa'). Gunakan Bahasa Indonesia." };
+        
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: { parts: [imagePart, textPart] },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.OBJECT,
+                    properties: {
+                        visualDescription: { type: Type.STRING, description: "Deskripsi visual singkat dari subjek utama." },
+                        speakerDescription: { type: Type.STRING, description: "Deskripsi singkat dari pembicara utama." },
+                    },
+                    required: ["visualDescription", "speakerDescription"],
+                },
+            },
+        });
+
+        const result = JSON.parse(response.text.trim());
+        const newPrompt = segment.prompt.includes('DESKRIPSI GAMBAR:')
+            ? segment.prompt.replace(/DESKRIPSI GAMBAR:.*?\n\n/, `DESKRIPSI GAMBAR: ${result.visualDescription}\n\n`)
+            : `DESKRIPSI GAMBAR: ${result.visualDescription}\n\n${segment.prompt}`;
+        
+        updateSegment(id, { prompt: newPrompt, speaker: result.speakerDescription });
+
+    } catch (error) {
+        console.error("Error analyzing image:", error);
+        alert(`Gagal menganalisis gambar. ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+        updateSegment(id, { isAnalyzing: false });
+    }
   };
 
   return (
@@ -101,6 +166,26 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
                         rows={3}
                         className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none resize-y"
                       />
+                       {segment.startImage && (
+                            <button
+                                onClick={() => handleAnalyzeImage(segment.id)}
+                                disabled={segment.isAnalyzing}
+                                className="text-xs px-2 py-2 bg-brand-secondary hover:bg-brand-primary/20 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                            >
+                                {segment.isAnalyzing ? (
+                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                ) : (
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                )}
+                                {segment.isAnalyzing ? 'Menganalisis...' : 'Analisis Gambar untuk Prompt & Suara'}
+                            </button>
+                        )}
                       <textarea
                         value={segment.dialogue || ''}
                         onChange={(e: ChangeEvent<HTMLTextAreaElement>) => updateSegment(segment.id, { dialogue: e.target.value })}
@@ -108,6 +193,18 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
                         rows={2}
                         className="w-full bg-brand-bg/50 border border-brand-accent/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none resize-y"
                       />
+                      <div>
+                          <label className="block text-xs font-medium text-brand-text-muted mb-1">
+                              Pembicara (Opsional, diisi otomatis oleh Analisis Gambar)
+                          </label>
+                          <input
+                              type="text"
+                              value={segment.speaker || ''}
+                              onChange={(e: ChangeEvent<HTMLInputElement>) => updateSegment(segment.id, { speaker: e.target.value })}
+                              placeholder="e.g., seorang anak, seorang pria tua"
+                              className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none"
+                          />
+                      </div>
                       <ImageDropzone 
                           imageFile={segment.startImage}
                           onFileChange={(file) => updateSegment(segment.id, { startImage: file })}

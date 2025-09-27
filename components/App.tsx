@@ -118,7 +118,7 @@ const App: React.FC = () => {
                             aspectRatio: string;
                         };
                     } = {
-                        model: 'veo-3.0-fast-generate-001',
+                        model: 'veo-2.0-generate-001',
                         prompt: segment.prompt,
                         config: { 
                             numberOfVideos: 1,
@@ -127,7 +127,12 @@ const App: React.FC = () => {
                     };
                     
                     if (segment.dialogue && segment.dialogue.trim() !== '') {
-                        generationPayload.speech = { tts: { text: segment.dialogue } };
+                        let ttsText = segment.dialogue;
+                        if (segment.speaker && segment.speaker.trim() !== '') {
+                            // Provides context to the TTS model about who is speaking
+                            ttsText = `${segment.speaker} berkata: "${segment.dialogue}"`;
+                        }
+                        generationPayload.speech = { tts: { text: ttsText } };
                     }
 
                     if (segment.startImage) {
@@ -241,7 +246,7 @@ const App: React.FC = () => {
   const renderActiveTab = () => {
     switch (activeTab) {
       case Tab.VIDEO_GENERATOR:
-        return <VideoGeneratorTab segments={videoSegments} setSegments={setVideoSegments} />;
+        return <VideoGeneratorTab segments={videoSegments} setSegments={setVideoSegments} apiKey={apiKey} />;
       case Tab.IMAGE_GENERATOR:
         return <ImageGeneratorTab
           prompt={imagePrompt}
