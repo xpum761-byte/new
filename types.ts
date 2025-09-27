@@ -19,15 +19,11 @@ export interface GenerationState {
 export interface VideoSegment {
   id: string;
   prompt: string;
-  dialogue?: string;
-  speaker?: string;
   startImage?: File;
   videoUrl?: string;
   status: 'idle' | 'generating' | 'success' | 'error';
   aspectRatio: string;
   mode: 'transition';
-  isAnalyzing?: boolean;
-  analysisStatus?: 'idle' | 'success' | 'error';
 }
 
 // --- Prompt Generator Types ---
