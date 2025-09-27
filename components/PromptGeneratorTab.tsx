@@ -296,100 +296,7 @@ Buatlah cerita yang logis dengan awal, tengah, dan akhir. Pastikan semua waktu k
         // Update state so the UI is consistent
         setCharacters(charactersWithIds);
         setSceneSettings(validatedSceneSettings);
-        
-        // --- START: Auto-segment and Export Logic ---
-
-        // 1. Calculate maxEndTime from the new characters
-        let maxEndTime = 0;
-        charactersWithIds.forEach((char: Character) => {
-            char.timeline.forEach((event: TimelineEvent) => {
-                const eventEnd = parseFloat(event.end);
-                if (!isNaN(eventEnd) && eventEnd > maxEndTime) {
-                    maxEndTime = eventEnd;
-                }
-            });
-        });
-
-        if (maxEndTime === 0) {
-            alert("Cerita berhasil dibuat, tetapi tidak ada timeline yang dapat diubah menjadi segmen video. Silakan periksa timeline karakter dan buat segmen secara manual.");
-            setClipSegments([]); // Clear any old segments
-            return; // Stop here if no timeline events
-        }
-
-        // 2. Generate clip segments
-        const newClipSegments: ClipSegment[] = [];
-        for (let startTime = 0; startTime < maxEndTime; startTime += 8) {
-            const endTime = Math.min(startTime + 8, maxEndTime);
-            if (startTime < endTime) { 
-                newClipSegments.push({
-                    id: crypto.randomUUID(),
-                    startTime: String(startTime),
-                    endTime: String(endTime),
-                });
-            }
-        }
-        setClipSegments(newClipSegments);
-
-        // 3. Prepare segments for export
-        const segmentsToExport = newClipSegments
-            .sort((a,b) => parseFloat(a.startTime) - parseFloat(b.startTime))
-            .map(clip => {
-                const startTime = parseFloat(clip.startTime);
-                const endTime = parseFloat(clip.endTime);
-                const duration = calculateDuration(clip.startTime, clip.endTime);
-
-                const visualActions: string[] = [];
-                const dialogueLines: string[] = [];
-                const speakers: string[] = [];
-
-                charactersWithIds.forEach(char => {
-                    char.timeline.forEach(event => {
-                        const eventStart = parseFloat(event.start);
-                        const eventEnd = parseFloat(event.end);
-                        // Check if the event overlaps with the clip's time range
-                        if (Math.max(startTime, eventStart) < Math.min(endTime, eventEnd)) {
-                            if (event.type === 'action' && event.description) {
-                                visualActions.push(`${char.name} ${event.description}`);
-                            } else if (event.type === 'dialogue' && (event as DialogueEvent).text) {
-                                dialogueLines.push((event as DialogueEvent).text);
-                                if (!speakers.includes(char.name)) {
-                                    speakers.push(char.name);
-                                }
-                            }
-                        }
-                    });
-                });
-
-                const scenePrompt = `gaya visual ${validatedSceneSettings.graphicStyle}, pencahayaan ${validatedSceneSettings.lighting}, sudut pandang kamera ${validatedSceneSettings.cameraAngle}, suasana ${validatedSceneSettings.mood}`;
-                const actionPrompt = visualActions.join('. ');
-                
-                const durationText = duration > 0 ? `Sebuah video berdurasi ${duration.toFixed(1)} detik. ` : '';
-
-                let finalPrompt = '';
-                if (actionPrompt) {
-                    finalPrompt = `${durationText}${actionPrompt}. Ini terjadi dalam sebuah adegan dengan ${scenePrompt}.`;
-                } else {
-                    finalPrompt = `${durationText}Sebuah adegan yang menunjukkan: ${scenePrompt}.`;
-                }
-
-                if (validatedSceneSettings.backgroundSound) {
-                    finalPrompt += ` Terdengar suara latar: ${validatedSceneSettings.backgroundSound}.`;
-                }
-
-                const segment: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'> = {
-                    prompt: finalPrompt.trim().replace(/\s\s+/g, ' '),
-                    dialogue: dialogueLines.join('\n'),
-                    speaker: speakers.join(', '),
-                    aspectRatio: '16:9',
-                    mode: 'transition',
-                };
-                return segment;
-            });
-        
-        // 4. Export to batch tab
-        onExportToBatch(segmentsToExport);
-        // --- END: Auto-segment and Export Logic ---
-
+        setClipSegments([]); // Clear previous segments to avoid confusion
 
     } catch (error) {
         console.error("Error generating story idea:", error);
@@ -627,10 +534,10 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                     </svg>
-                                    Membuat Cerita & Segmen...
+                                    Membuat Cerita...
                                 </>
                             ) : (
-                                'Generate Cerita & Siapkan Video'
+                                'Buat Cerita dari Ide'
                             )}
                         </button>
                     </div>
