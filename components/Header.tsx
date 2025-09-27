@@ -9,7 +9,8 @@ interface HeaderProps {
 }
 
 // FIX: Changed JSX.Element to React.ReactElement to resolve missing JSX namespace error.
-const headerTabs: { id: Tab; label: string; icon: React.ReactElement }[] = [
+// FIX: Explicitly type `icon` with SVG props to allow `React.cloneElement` to pass `className`.
+const headerTabs: { id: Tab; label: string; icon: React.ReactElement<React.SVGProps<SVGSVGElement>> }[] = [
   {
     id: Tab.VIDEO_GENERATOR,
     label: 'Video Generator',

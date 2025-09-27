@@ -127,12 +127,9 @@ const App: React.FC = () => {
                     };
                     
                     if (segment.dialogue && segment.dialogue.trim() !== '') {
-                        let ttsText = segment.dialogue;
-                        if (segment.speaker && segment.speaker.trim() !== '') {
-                            // Provides context to the TTS model about who is speaking
-                            ttsText = `${segment.speaker} berkata: "${segment.dialogue}"`;
-                        }
-                        generationPayload.speech = { tts: { text: ttsText } };
+                        // The speaker information should be in the main prompt to guide visuals.
+                        // The TTS field should contain only the dialogue text to be spoken.
+                        generationPayload.speech = { tts: { text: segment.dialogue } };
                     }
 
                     if (segment.startImage) {
