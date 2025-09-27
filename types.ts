@@ -16,16 +16,18 @@ export interface VideoSegment {
   id: string;
   prompt: string;
   dialogue?: string;
+  speaker?: string;
   startImage?: File;
   videoUrl?: string;
   status: 'idle' | 'generating' | 'success' | 'error';
   aspectRatio: string;
   mode: 'transition';
+  isAnalyzing?: boolean;
 }
 
 // --- Prompt Generator Types ---
 export interface ActionEvent {
-  id: string;
+  id:string;
   type: 'action';
   start: string;
   end: string;
