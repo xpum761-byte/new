@@ -1,4 +1,8 @@
 
+
+// FIX: Import react types to resolve namespace errors for state setters.
+import type { Dispatch, SetStateAction } from 'react';
+
 export enum Tab {
   VIDEO_GENERATOR = 'video_generator',
   IMAGE_GENERATOR = 'image_generator',
@@ -23,6 +27,7 @@ export interface VideoSegment {
   aspectRatio: string;
   mode: 'transition';
   isAnalyzing?: boolean;
+  analysisStatus?: 'idle' | 'success' | 'error';
 }
 
 // --- Prompt Generator Types ---
@@ -50,6 +55,9 @@ export interface Character {
   nationality: string;
   traits: string;
   appearance: string;
+  referenceImage?: File;
+  referenceImageUrl?: string;
+  isGeneratingFace?: boolean;
   voice: {
     type: string;
     pitch: string;
@@ -77,11 +85,11 @@ export interface PromptGeneratorTabProps {
   apiKey: string;
   onExportToBatch: (segments: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'>[]) => void;
   characters: Character[];
-  setCharacters: React.Dispatch<React.SetStateAction<Character[]>>;
+  setCharacters: Dispatch<SetStateAction<Character[]>>;
   sceneSettings: SceneSettings;
-  setSceneSettings: React.Dispatch<React.SetStateAction<SceneSettings>>;
+  setSceneSettings: Dispatch<SetStateAction<SceneSettings>>;
   clipSegments: ClipSegment[];
-  setClipSegments: React.Dispatch<React.SetStateAction<ClipSegment[]>>;
+  setClipSegments: Dispatch<SetStateAction<ClipSegment[]>>;
 }
 
 export interface BatchSegment {
