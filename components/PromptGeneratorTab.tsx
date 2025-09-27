@@ -225,11 +225,11 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({
                     items: {
                       type: Type.OBJECT,
                       properties: {
-                        type: { type: Type.STRING },
-                        start: { type: Type.STRING },
-                        end: { type: Type.STRING },
-                        description: { type: Type.STRING },
-                        text: { type: Type.STRING }
+                        type: { type: Type.STRING, description: "Tipe event, 'action' atau 'dialogue'." },
+                        start: { type: Type.STRING, description: "Waktu mulai event dalam detik sebagai string numerik (contoh: '0', '8.5')." },
+                        end: { type: Type.STRING, description: "Waktu selesai event dalam detik sebagai string numerik (contoh: '8.5', '15')." },
+                        description: { type: Type.STRING, description: "Deskripsi jika tipe adalah 'action'." },
+                        text: { type: Type.STRING, description: "Teks dialog jika tipe adalah 'dialogue'." }
                       },
                       required: ['type', 'start', 'end']
                     }
@@ -256,13 +256,13 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({
         const prompt = `Berdasarkan ide berikut: "${storyIdeaPrompt}", buatlah struktur cerita yang lengkap dalam format JSON.
 
 Isi JSON harus mencakup:
-1.  **Karakter**: Detail tentang setiap karakter, termasuk nama, penampilan, dan urutan waktu tindakan (aksi) dan dialog mereka.
+1.  **Karakter**: Detail tentang setiap karakter, termasuk nama, penampilan, dan urutan waktu (timeline) tindakan (aksi) dan dialog mereka.
 2.  **Pengaturan Adegan**: Suasana keseluruhan, suara latar, sudut pandang kamera, gaya grafis, dan pencahayaan. Pastikan nilai untuk kamera, gaya, dan pencahayaan dipilih dari daftar yang tersedia:
     *   Kamera: ${cameraAngles.join(', ')}
     *   Gaya: ${graphicStyles.join(', ')}
     *   Pencahayaan: ${lightings.join(', ')}
 
-Buatlah cerita yang logis dengan awal, tengah, dan akhir. Pastikan semua waktu konsisten dan kronologis. Dialog harus dalam Bahasa Indonesia.`;
+**PENTING**: Untuk setiap event dalam timeline, properti "start" dan "end" HARUS berupa string yang berisi angka numerik yang merepresentasikan waktu dalam detik (contoh: "0", "8.5", "15"). Jangan gunakan deskripsi waktu seperti 'Pagi hari' atau 'Hari 1'. Buatlah cerita yang logis dengan durasi total sekitar 30-60 detik. Pastikan semua waktu konsisten dan kronologis. Dialog harus dalam Bahasa Indonesia.`;
 
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
