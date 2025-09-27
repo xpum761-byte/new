@@ -1,5 +1,4 @@
 
-
 import React, { ChangeEvent, useRef } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import type { VideoSegment } from '../types';
@@ -47,7 +46,7 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
   const videoAspectRatios = ['16:9', '9:16', '4:3', '1:1', '4:5'];
 
   const addSegment = () => {
-    setSegments([...segments, { id: crypto.randomUUID(), prompt: '', dialogue: '', speaker: '', startImage: undefined, videoUrl: undefined, status: 'idle', aspectRatio: '16:9', mode: 'transition' }]);
+    setSegments([...segments, { id: crypto.randomUUID(), prompt: '', dialogue: '', speaker: '', startImage: undefined, videoUrl: undefined, status: 'idle', aspectRatio: '16:9', mode: 'transition', analysisStatus: 'idle' }]);
   };
 
   const removeSegment = (id: string) => {
@@ -85,7 +84,7 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
         return;
     }
 
-    updateSegment(id, { isAnalyzing: true });
+    updateSegment(id, { isAnalyzing: true, analysisStatus: 'idle' });
     
     try {
         const ai = new GoogleGenAI({ apiKey });
@@ -114,14 +113,45 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
             ? segment.prompt.replace(/DESKRIPSI GAMBAR:.*?\n\n/, `DESKRIPSI GAMBAR: ${result.visualDescription}\n\n`)
             : `DESKRIPSI GAMBAR: ${result.visualDescription}\n\n${segment.prompt}`;
         
-        updateSegment(id, { prompt: newPrompt, speaker: result.speakerDescription });
+        updateSegment(id, { prompt: newPrompt, speaker: result.speakerDescription, analysisStatus: 'success' });
 
     } catch (error) {
         console.error("Error analyzing image:", error);
         alert(`Gagal menganalisis gambar. ${error instanceof Error ? error.message : 'Unknown error'}`);
+        updateSegment(id, { analysisStatus: 'error' });
     } finally {
         updateSegment(id, { isAnalyzing: false });
     }
+  };
+
+  const getAnalyzeButtonContent = (segment: VideoSegment) => {
+      if (segment.isAnalyzing) {
+        return { 
+            text: 'Menganalisis...', 
+            icon: <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>,
+            className: 'bg-brand-secondary'
+        };
+      }
+      switch (segment.analysisStatus) {
+          case 'success':
+              return { 
+                  text: 'Analisis Berhasil', 
+                  icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>,
+                  className: 'bg-green-500/50 hover:bg-green-500/60'
+              };
+          case 'error':
+              return { 
+                  text: 'Analisis Gagal, Coba Lagi', 
+                  icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+                  className: 'bg-red-500/50 hover:bg-red-500/60'
+              };
+          default:
+              return { 
+                  text: 'Analisis Gambar untuk Prompt & Suara', 
+                  icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>,
+                  className: 'bg-brand-secondary hover:bg-brand-primary/20'
+              };
+      }
   };
 
   return (
@@ -134,7 +164,9 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
       </div>
       {segments.length > 0 ? (
         <div className="flex-grow space-y-4 pr-2 pb-28">
-          {segments.map((segment, index) => (
+          {segments.map((segment, index) => {
+            const buttonContent = getAnalyzeButtonContent(segment);
+            return (
             <div
               key={segment.id}
               className="bg-brand-surface p-4 rounded-lg flex flex-col gap-4 border border-brand-primary/10"
@@ -166,24 +198,21 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
                         rows={3}
                         className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none resize-y"
                       />
+                       <ImageDropzone 
+                          imageFile={segment.startImage}
+                          onFileChange={(file) => updateSegment(segment.id, { startImage: file, analysisStatus: 'idle' })}
+                          onFileRemove={() => updateSegment(segment.id, { startImage: undefined, analysisStatus: 'idle' })}
+                          containerClassName="h-32"
+                          promptText="Add optional start image"
+                      />
                        {segment.startImage && (
                             <button
                                 onClick={() => handleAnalyzeImage(segment.id)}
                                 disabled={segment.isAnalyzing}
-                                className="text-xs px-2 py-2 bg-brand-secondary hover:bg-brand-primary/20 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                className={`text-xs px-2 py-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center ${buttonContent.className}`}
                             >
-                                {segment.isAnalyzing ? (
-                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                ) : (
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                    </svg>
-                                )}
-                                {segment.isAnalyzing ? 'Menganalisis...' : 'Analisis Gambar untuk Prompt & Suara'}
+                                {buttonContent.icon}
+                                {buttonContent.text}
                             </button>
                         )}
                       <textarea
@@ -205,13 +234,6 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
                               className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none"
                           />
                       </div>
-                      <ImageDropzone 
-                          imageFile={segment.startImage}
-                          onFileChange={(file) => updateSegment(segment.id, { startImage: file })}
-                          onFileRemove={() => updateSegment(segment.id, { startImage: undefined })}
-                          containerClassName="h-32"
-                          promptText="Add optional start image"
-                      />
                       <div>
                         <label className="block text-xs font-medium text-brand-text-muted mb-2">Aspect Ratio</label>
                         <div className="flex gap-2 flex-wrap">
@@ -243,7 +265,8 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       ) : (
         <div className="flex-grow flex items-center justify-center text-brand-text-muted border-2 border-dashed border-brand-primary/20 rounded-lg">

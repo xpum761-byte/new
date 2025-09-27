@@ -8,7 +8,8 @@ interface HeaderProps {
     onSettingsClick: () => void;
 }
 
-const headerTabs: { id: Tab; label: string; icon: JSX.Element }[] = [
+// FIX: Changed JSX.Element to React.ReactElement to resolve missing JSX namespace error.
+const headerTabs: { id: Tab; label: string; icon: React.ReactElement }[] = [
   {
     id: Tab.VIDEO_GENERATOR,
     label: 'Video Generator',

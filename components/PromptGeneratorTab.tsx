@@ -1,4 +1,8 @@
 
+
+
+
+
 import React, { useState, ChangeEvent, useEffect, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
@@ -104,6 +108,19 @@ const cameraAngles = ["Normal (Eye-level)", "High-angle", "Low-angle", "Dutch An
 const graphicStyles = ["Realistic", "Cartoon", "Anime", "Fantasy", "Cyberpunk", "Vintage"];
 const lightings = ["Siang Hari (Cerah)", "Malam Hari", "Mendung", "Golden Hour", "Blue Hour", "Neon"];
 
+// Helper function to convert base64 to a File object
+const base64ToFile = (base64: string, filename: string, mimeType: string): File => {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mimeType });
+    return new File([blob], filename, { type: mimeType });
+};
+
+
 export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({ 
   apiKey,
   onExportToBatch, 
@@ -130,6 +147,18 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({
   };
   const updateVoiceSetting = (charId: string, field: keyof Character['voice'], value: string) => {
     setCharacters(characters.map(c => c.id === charId ? { ...c, voice: { ...c.voice, [field]: value } } : c));
+  };
+
+  const removeReferenceImage = (charId: string) => {
+    setCharacters(characters.map(c => {
+        if (c.id === charId) {
+            if (c.referenceImageUrl) {
+                URL.revokeObjectURL(c.referenceImageUrl);
+            }
+            return { ...c, referenceImage: undefined, referenceImageUrl: undefined };
+        }
+        return c;
+    }));
   };
 
   // --- TIMELINE HANDLERS ---
@@ -199,6 +228,94 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({
   };
   
   // --- AI GENERATION FUNCTIONS ---
+
+  const handleGenerateFace = async (charId: string) => {
+    if (!apiKey) {
+      alert("Please set your API Key in the settings.");
+      return;
+    }
+
+    const character = characters.find((c) => c.id === charId);
+    if (!character || !character.appearance) {
+      alert("Harap isi deskripsi penampilan karakter terlebih dahulu.");
+      return;
+    }
+
+    // Start loading indicator
+    setCharacters((prev) =>
+      prev.map((c) => (c.id === charId ? { ...c, isGeneratingFace: true } : c))
+    );
+
+    let newImage: { file: File; url: string } | null = null;
+    let errorOccurred = false;
+
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `A cinematic, high-detail portrait of a character for a character sheet. Name: ${
+        character.name || "unnamed"
+      }. Traits: ${
+        character.traits || "not specified"
+      }. Appearance: ${
+        character.appearance
+      }. The image should be a clear, forward-facing portrait focusing on the face. No text. Photorealistic style.`;
+
+      const response = await ai.models.generateImages({
+        model: "imagen-4.0-generate-001",
+        prompt: prompt,
+        config: {
+          numberOfImages: 1,
+          outputMimeType: "image/jpeg",
+          aspectRatio: "1:1",
+        },
+      });
+
+      if (response.generatedImages && response.generatedImages.length > 0) {
+        const base64Image = response.generatedImages[0].image.imageBytes;
+        const filename = `${
+          character.name || "character"
+        }_${charId}.jpeg`.replace(/\s+/g, "_");
+        const imageFile = base64ToFile(
+          base64Image,
+          filename,
+          "image/jpeg"
+        );
+        const imageUrl = URL.createObjectURL(imageFile);
+        newImage = { file: imageFile, url: imageUrl };
+      } else {
+        throw new Error("Image generation failed to return an image.");
+      }
+    } catch (error) {
+      errorOccurred = true;
+      console.error("Error generating character face:", error);
+      alert(
+        `Gagal membuat wajah karakter. ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    } finally {
+      // Consolidated state update
+      setCharacters((prev) =>
+        prev.map((c) => {
+          if (c.id === charId) {
+            const updatedCharacter: Character = { ...c, isGeneratingFace: false };
+            if (newImage && !errorOccurred) {
+              // Revoke old URL if it exists
+              if (c.referenceImageUrl) {
+                URL.revokeObjectURL(c.referenceImageUrl);
+              }
+              // Set new image and URL
+              updatedCharacter.referenceImage = newImage.file;
+              updatedCharacter.referenceImageUrl = newImage.url;
+            }
+            return updatedCharacter;
+          }
+          return c;
+        })
+      );
+    }
+  };
+
+
   const handleGenerateStoryIdea = async () => {
     if (!apiKey) { alert("Please set your API Key in the settings."); return; }
     if (!storyIdeaPrompt) { alert("Please enter a story idea."); return; }
@@ -262,7 +379,7 @@ Isi JSON harus mencakup:
     *   Gaya: ${graphicStyles.join(', ')}
     *   Pencahayaan: ${lightings.join(', ')}
 
-**PENTING**: Untuk setiap event dalam timeline, properti "start" dan "end" HARUS berupa string yang berisi angka numerik yang merepresentasikan waktu dalam detik (contoh: "0", "8.5", "15"). Jangan gunakan deskripsi waktu seperti 'Pagi hari' atau 'Hari 1'. Buatlah cerita yang logis dengan durasi total sekitar sesuai yang di masukan di prompt. Pastikan semua waktu konsisten dan kronologis. Dialog harus dalam Bahasa Indonesia.`;
+**PENTING**: Untuk setiap event dalam timeline, properti "start" dan "end" HARUS berupa string yang berisi angka numerik yang merepresentasikan waktu dalam detik (contoh: "0", "8.5", "15"). Jangan gunakan deskripsi waktu seperti 'Pagi hari' atau 'Hari 1'. Buatlah cerita yang logis dengan durasi total sekitar 30-60 detik. Pastikan semua waktu konsisten dan kronologis. Dialog harus dalam Bahasa Indonesia.`;
 
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
@@ -430,18 +547,20 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
             const visualActions: string[] = [];
             const dialogueLines: string[] = [];
             const speakers: string[] = [];
+            const activeCharactersInClip = new Map<string, Character>();
 
             characters.forEach(char => {
                 char.timeline.forEach(event => {
                     const eventStart = parseFloat(event.start);
                     const eventEnd = parseFloat(event.end);
-                    // Check if the event overlaps with the clip's time range
                     if (Math.max(startTime, eventStart) < Math.min(endTime, eventEnd)) {
+                        if (!activeCharactersInClip.has(char.id)) {
+                            activeCharactersInClip.set(char.id, char);
+                        }
                         if (event.type === 'action' && event.description) {
                             visualActions.push(`${char.name} ${event.description}`);
                         } else if (event.type === 'dialogue' && (event as DialogueEvent).text) {
                             dialogueLines.push((event as DialogueEvent).text);
-                            // Simple speaker detection
                             if (!speakers.includes(char.name)) {
                                 speakers.push(char.name);
                             }
@@ -450,19 +569,36 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
                 });
             });
 
-            // Construct a direct, non-AI prompt
+            let referenceImageForSegment: File | undefined = undefined;
+            const charactersWithImages = Array.from(activeCharactersInClip.values()).filter(c => c.referenceImage);
+            if (charactersWithImages.length > 0) {
+                referenceImageForSegment = charactersWithImages[0].referenceImage;
+            }
+
+            let characterDescriptions = '';
+            if (activeCharactersInClip.size > 0) {
+                characterDescriptions += 'DESKRIPSI KARAKTER: ';
+                const descriptions = Array.from(activeCharactersInClip.values()).map(char => {
+                    return `${char.name} adalah ${char.traits || 'seseorang'} dengan penampilan: ${char.appearance || 'tidak dideskripsikan'}.`;
+                });
+                characterDescriptions += descriptions.join(' ');
+                characterDescriptions += '\n\n';
+            }
+
             const scenePrompt = `gaya visual ${sceneSettings.graphicStyle}, pencahayaan ${sceneSettings.lighting}, sudut pandang kamera ${sceneSettings.cameraAngle}, suasana ${sceneSettings.mood}`;
             const actionPrompt = visualActions.join('. ');
-            
-            // Add duration information at the beginning of the prompt.
             const durationText = duration > 0 ? `Sebuah video berdurasi ${duration.toFixed(1)} detik. ` : '';
 
             let finalPrompt = '';
+            if (referenceImageForSegment) {
+                finalPrompt += 'PENTING: Karakter utama harus terlihat persis seperti orang di gambar awal yang disediakan. ';
+            }
+            
+            finalPrompt += `${characterDescriptions}${durationText}`;
             if (actionPrompt) {
-                finalPrompt = `${durationText}${actionPrompt}. Ini terjadi dalam sebuah adegan dengan ${scenePrompt}.`;
+                finalPrompt += `${actionPrompt}. Ini terjadi dalam sebuah adegan dengan ${scenePrompt}.`;
             } else {
-                // If no specific actions, create a general scene prompt
-                finalPrompt = `${durationText}Sebuah adegan yang menunjukkan: ${scenePrompt}.`;
+                finalPrompt += `Sebuah adegan yang menunjukkan: ${scenePrompt}.`;
             }
 
             if (sceneSettings.backgroundSound) {
@@ -472,7 +608,8 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
             const segment: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'> = {
                 prompt: finalPrompt.trim().replace(/\s\s+/g, ' '),
                 dialogue: dialogueLines.join('\n'),
-                speaker: speakers.join(', '), // List all speakers in the segment
+                speaker: speakers.join(', '),
+                startImage: referenceImageForSegment,
                 aspectRatio: '16:9',
                 mode: 'transition',
             };
@@ -557,7 +694,35 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
                           <input type="text" placeholder="Kebangsaan" value={char.nationality} onChange={(e) => updateCharacter(char.id, 'nationality', e.target.value)} className="bg-brand-bg p-2 rounded-md border border-brand-primary/10" />
                           <textarea placeholder="Ciri Dasar (Traits)" value={char.traits} onChange={(e) => updateCharacter(char.id, 'traits', e.target.value)} className="md:col-span-2 bg-brand-bg p-2 rounded-md border border-brand-primary/10 resize-y" rows={2}></textarea>
                           <textarea placeholder="Penampilan" value={char.appearance} onChange={(e) => updateCharacter(char.id, 'appearance', e.target.value)} className="md:col-span-2 bg-brand-bg p-2 rounded-md border border-brand-primary/10 resize-y" rows={2}></textarea>
-                        
+                          
+                           {/* Face Generation */}
+                          <div className="md:col-span-2 flex flex-col sm:flex-row items-center gap-4 mt-2">
+                            <button 
+                                onClick={() => handleGenerateFace(char.id)} 
+                                disabled={!char.appearance || char.isGeneratingFace} 
+                                className="w-full sm:w-auto flex-grow text-sm px-4 py-2 bg-brand-secondary text-brand-text font-semibold rounded-md hover:bg-brand-primary/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                            >
+                                {char.isGeneratingFace ? (
+                                    <>
+                                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                        Membuat...
+                                    </>
+                                ) : 'Generate Wajah (AI)'}
+                            </button>
+                            {char.referenceImageUrl && (
+                                <div className="relative w-20 h-20 shrink-0 group">
+                                <img src={char.referenceImageUrl} alt={`Wajah ${char.name}`} className="w-full h-full object-cover rounded-md" />
+                                <button 
+                                    onClick={() => removeReferenceImage(char.id)} 
+                                    className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    aria-label="Hapus gambar referensi"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                                </div>
+                            )}
+                          </div>
+
                           {/* Voice Settings */}
                           <h4 className="md:col-span-2 text-xs font-semibold uppercase text-brand-text-muted mt-2">Pengaturan Suara</h4>
                            <textarea placeholder="Atau, deskripsikan suara secara natural di sini..." value={char.voice.consistency} onChange={(e) => updateVoiceSetting(char.id, 'consistency', e.target.value)} className="md:col-span-2 bg-brand-bg p-2 rounded-md border border-brand-primary/10 resize-y" rows={2}></textarea>
