@@ -42,6 +42,7 @@ const App: React.FC = () => {
   const [imageAspectRatio, setImageAspectRatio] = useState('1:1');
   const [numberOfImages, setNumberOfImages] = useState(1);
   const [referenceImage, setReferenceImage] = useState<File | undefined>();
+  const [referenceImage2, setReferenceImage2] = useState<File | undefined>();
 
   // State for PromptGeneratorTab
   const [characters, setCharacters] = useState<Character[]>([createNewCharacter()]);
@@ -108,30 +109,25 @@ const App: React.FC = () => {
                 setGenerationState(prev => ({ ...prev, message: `Generating video ${i + 1} of ${totalSegments}...` }));
 
                 try {
+                    const finalPrompt = segment.prompt;
+                    
                     const generationPayload: {
                         model: string;
                         prompt: string;
                         image?: { imageBytes: string; mimeType: string; };
-                        speech?: { tts: { text: string; } };
                         config: { 
                             numberOfVideos: number;
                             aspectRatio: string;
                         };
                     } = {
                         model: 'veo-3.0-fast-generate-001',
-                        prompt: segment.prompt,
+                        prompt: finalPrompt.trim().replace(/\s\s+/g, ' '),
                         config: { 
                             numberOfVideos: 1,
                             aspectRatio: segment.aspectRatio,
                         }
                     };
                     
-                    if (segment.dialogue && segment.dialogue.trim() !== '') {
-                        // The speaker information should be in the main prompt to guide visuals.
-                        // The TTS field should contain only the dialogue text to be spoken.
-                        generationPayload.speech = { tts: { text: segment.dialogue } };
-                    }
-
                     if (segment.startImage) {
                         setGenerationState(prev => ({ ...prev, message: `Processing image for segment ${i + 1}...` }));
                         const base64Image = await fileToBase64(segment.startImage);
@@ -188,7 +184,36 @@ const App: React.FC = () => {
         setGeneratedImages([]);
 
         try {
-            if (referenceImage) {
+            if (referenceImage && referenceImage2) {
+                // --- Image Combining ---
+                setGenerationState(prev => ({ ...prev, message: 'Combining images...', progress: 20 }));
+                const base64Data1 = await fileToBase64(referenceImage);
+                const base64Data2 = await fileToBase64(referenceImage2);
+                
+                const imagePart1 = { inlineData: { mimeType: referenceImage.type, data: base64Data1 } };
+                const imagePart2 = { inlineData: { mimeType: referenceImage2.type, data: base64Data2 } };
+                const textPart = { text: imagePrompt };
+
+                const response = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash-image-preview',
+                    contents: { parts: [imagePart1, imagePart2, textPart] },
+                    config: { responseModalities: [Modality.IMAGE, Modality.TEXT] },
+                });
+
+                const newImages: string[] = [];
+                if (response.candidates && response.candidates.length > 0) {
+                     for (const part of response.candidates[0].content.parts) {
+                        if (part.inlineData) {
+                            newImages.push(`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`);
+                        }
+                    }
+                }
+                if (newImages.length === 0) throw new Error("The model did not return an image. It may have refused the request.");
+                
+                setGeneratedImages(newImages);
+                setGenerationState({ isGenerating: false, progress: 100, message: 'Images combined successfully!', status: 'success' });
+            }
+            else if (referenceImage) {
                 // --- Image Editing ---
                 setGenerationState(prev => ({ ...prev, message: 'Editing image...', progress: 20 }));
                 const base64Data = await fileToBase64(referenceImage);
@@ -243,7 +268,7 @@ const App: React.FC = () => {
   const renderActiveTab = () => {
     switch (activeTab) {
       case Tab.VIDEO_GENERATOR:
-        return <VideoGeneratorTab segments={videoSegments} setSegments={setVideoSegments} apiKey={apiKey} />;
+        return <VideoGeneratorTab segments={videoSegments} setSegments={setVideoSegments} />;
       case Tab.IMAGE_GENERATOR:
         return <ImageGeneratorTab
           prompt={imagePrompt}
@@ -256,6 +281,8 @@ const App: React.FC = () => {
           isGenerating={generationState.isGenerating && activeTab === Tab.IMAGE_GENERATOR}
           referenceImage={referenceImage}
           setReferenceImage={setReferenceImage}
+          referenceImage2={referenceImage2}
+          setReferenceImage2={setReferenceImage2}
         />;
       case Tab.PROMPT_GENERATOR:
         return (

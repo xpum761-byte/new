@@ -3,6 +3,7 @@
 
 
 
+
 import React, { useState, ChangeEvent, useEffect, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
@@ -379,7 +380,7 @@ Isi JSON harus mencakup:
     *   Gaya: ${graphicStyles.join(', ')}
     *   Pencahayaan: ${lightings.join(', ')}
 
-**PENTING**: Untuk setiap event dalam timeline, properti "start" dan "end" HARUS berupa string yang berisi angka numerik yang merepresentasikan waktu dalam detik (contoh: "0", "8.5", "15"). Jangan gunakan deskripsi waktu seperti 'Pagi hari' atau 'Hari 1'. Buatlah cerita yang logis dengan durasi total sekitar sesuai yang di masukan di prompt. Pastikan semua waktu konsisten dan kronologis. Dialog harus dalam Bahasa Indonesia.`;
+**PENTING**: Untuk setiap event dalam timeline, properti "start" dan "end" HARUS berupa string yang berisi angka numerik yang merepresentasikan waktu dalam detik (contoh: "0", "8.5", "15"). Jangan gunakan deskripsi waktu seperti 'Pagi hari' atau 'Hari 1'. Buatlah cerita yang logis dengan durasi total sekitar seperti yang di masukan di prompt. Pastikan semua waktu konsisten dan kronologis. Dialog harus dalam Bahasa Indonesia.`;
 
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
@@ -600,6 +601,12 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
             } else {
                 finalPrompt += `Sebuah adegan yang menunjukkan: ${scenePrompt}.`;
             }
+            
+            if (dialogueLines.length > 0) {
+                const speakerText = speakers.length > 1 ? speakers.join(' dan ') : speakers[0] || 'Seseorang';
+                const dialogueText = dialogueLines.map(line => `"${line}"`).join(' ');
+                finalPrompt += ` Dalam adegan tersebut, ${speakerText} berkata: ${dialogueText}.`;
+            }
 
             if (sceneSettings.backgroundSound) {
                 finalPrompt += ` Terdengar suara latar: ${sceneSettings.backgroundSound}.`;
@@ -607,8 +614,6 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
 
             const segment: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'> = {
                 prompt: finalPrompt.trim().replace(/\s\s+/g, ' '),
-                dialogue: dialogueLines.join('\n'),
-                speaker: speakers.join(', '),
                 startImage: referenceImageForSegment,
                 aspectRatio: '16:9',
                 mode: 'transition',
