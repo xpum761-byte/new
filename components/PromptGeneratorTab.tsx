@@ -1,9 +1,5 @@
 
 
-
-
-
-
 import React, { useState, ChangeEvent, useEffect, useCallback } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { 
@@ -258,14 +254,14 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({
         character.traits || "not specified"
       }. Appearance: ${
         character.appearance
-      }. The image should be a clear, forward-facing portrait focusing on the face. No text. Photorealistic style.`;
+      }. The image should be a clear, forward-facing portrait focusing on the face. Transparent background. No text. Photorealistic style.`;
 
       const response = await ai.models.generateImages({
         model: "imagen-4.0-generate-001",
         prompt: prompt,
         config: {
           numberOfImages: 1,
-          outputMimeType: "image/jpeg",
+          outputMimeType: "image/png",
           aspectRatio: "1:1",
         },
       });
@@ -274,11 +270,11 @@ export const PromptGeneratorTab: React.FC<PromptGeneratorTabProps> = ({
         const base64Image = response.generatedImages[0].image.imageBytes;
         const filename = `${
           character.name || "character"
-        }_${charId}.jpeg`.replace(/\s+/g, "_");
+        }_${charId}.png`.replace(/\s+/g, "_");
         const imageFile = base64ToFile(
           base64Image,
           filename,
-          "image/jpeg"
+          "image/png"
         );
         const imageUrl = URL.createObjectURL(imageFile);
         newImage = { file: imageFile, url: imageUrl };
@@ -380,7 +376,7 @@ Isi JSON harus mencakup:
     *   Gaya: ${graphicStyles.join(', ')}
     *   Pencahayaan: ${lightings.join(', ')}
 
-**PENTING**: Untuk setiap event dalam timeline, properti "start" dan "end" HARUS berupa string yang berisi angka numerik yang merepresentasikan waktu dalam detik (contoh: "0", "8.5", "15"). Jangan gunakan deskripsi waktu seperti 'Pagi hari' atau 'Hari 1'. Buatlah cerita yang logis dengan durasi total sekitar seperti yang di masukan di prompt. Pastikan semua waktu konsisten dan kronologis. Dialog harus dalam Bahasa Indonesia.`;
+**PENTING**: Untuk setiap event dalam timeline, properti "start" dan "end" HARUS berupa string yang berisi angka numerik yang merepresentasikan waktu dalam detik (contoh: "0", "8.5", "15"). Jangan gunakan deskripsi waktu seperti 'Pagi hari' atau 'Hari 1'. Buatlah cerita yang logis dengan durasi sesuai yang di masukan prompt. Pastikan semua waktu konsisten dan kronologis. Dialog harus dalam Bahasa Indonesia.`;
 
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
@@ -540,7 +536,7 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
     try {
         const segmentsToExport = clipSegments
         .sort((a,b) => parseFloat(a.startTime) - parseFloat(b.startTime))
-        .map(clip => {
+        .map((clip, index) => {
             const startTime = parseFloat(clip.startTime);
             const endTime = parseFloat(clip.endTime);
             const duration = calculateDuration(clip.startTime, clip.endTime);
@@ -578,12 +574,14 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
 
             let characterDescriptions = '';
             if (activeCharactersInClip.size > 0) {
-                characterDescriptions += 'DESKRIPSI KARAKTER: ';
                 const descriptions = Array.from(activeCharactersInClip.values()).map(char => {
-                    return `${char.name} adalah ${char.traits || 'seseorang'} dengan penampilan: ${char.appearance || 'tidak dideskripsikan'}.`;
+                    return `terlihat ${char.name}, yang merupakan ${char.traits || 'seseorang'} dengan penampilan: ${char.appearance || 'tidak dideskripsikan'}`;
                 });
-                characterDescriptions += descriptions.join(' ');
-                characterDescriptions += '\n\n';
+                if (descriptions.length > 1) {
+                     characterDescriptions = `Dalam adegan ini, ${descriptions.join(' dan ')}. `;
+                } else {
+                     characterDescriptions = `Dalam adegan ini, ${descriptions[0]}. `;
+                }
             }
 
             const scenePrompt = `gaya visual ${sceneSettings.graphicStyle}, pencahayaan ${sceneSettings.lighting}, sudut pandang kamera ${sceneSettings.cameraAngle}, suasana ${sceneSettings.mood}`;
@@ -591,6 +589,11 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
             const durationText = duration > 0 ? `Sebuah video berdurasi ${duration.toFixed(1)} detik. ` : '';
 
             let finalPrompt = '';
+            
+            if (index > 0) {
+                finalPrompt += 'Ini adalah adegan kelanjutan. ';
+            }
+
             if (referenceImageForSegment) {
                 finalPrompt += 'PENTING: Karakter utama harus terlihat persis seperti orang di gambar awal yang disediakan. ';
             }
