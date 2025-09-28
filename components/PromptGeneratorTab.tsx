@@ -376,7 +376,7 @@ Isi JSON harus mencakup:
     *   Gaya: ${graphicStyles.join(', ')}
     *   Pencahayaan: ${lightings.join(', ')}
 
-**PENTING**: Untuk setiap event dalam timeline, properti "start" dan "end" HARUS berupa string yang berisi angka numerik yang merepresentasikan waktu dalam detik (contoh: "0", "8.5", "15"). Jangan gunakan deskripsi waktu seperti 'Pagi hari' atau 'Hari 1'. Buatlah cerita yang logis dengan durasi sesuai yang di masukan prompt. Pastikan semua waktu konsisten dan kronologis. Dialog harus dalam Bahasa Indonesia.`;
+**PENTING**: Untuk setiap event dalam timeline, properti "start" dan "end" HARUS berupa string yang berisi angka numerik yang merepresentasikan waktu dalam detik (contoh: "0", "8.5", "15"). Jangan gunakan deskripsi waktu seperti 'Pagi hari' atau 'Hari 1'. Buatlah cerita yang logis dengan durasi total sesuai durasi yang di tuliskan. Pastikan semua waktu konsisten dan kronologis. Dialog harus dalam Bahasa yang di tuliskan.`;
 
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
