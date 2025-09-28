@@ -82,6 +82,88 @@ const App: React.FC = () => {
     setActiveTab(Tab.VIDEO_GENERATOR);
   };
 
+  const handleGenerateSingleSegment = async (segmentId: string) => {
+    if (generationState.isGenerating) {
+        return;
+    }
+    if (!apiKey) {
+        alert("Please set your API Key in the settings.");
+        setOpenSettings(true);
+        return;
+    }
+
+    const ai = new GoogleGenAI({ apiKey: apiKey });
+    const segment = videoSegments.find(s => s.id === segmentId);
+
+    if (!segment) {
+        console.error("Segment to generate not found:", segmentId);
+        return;
+    }
+
+    setGenerationState({ isGenerating: true, progress: 0, message: 'Initializing single segment generation...', status: 'generating' });
+    setVideoSegments(prev => prev.map(s => s.id === segmentId ? { ...s, status: 'generating' } : s));
+
+    try {
+        const finalPrompt = segment.prompt;
+        
+        const generationPayload: {
+            model: string;
+            prompt: string;
+            image?: { imageBytes: string; mimeType: string; };
+            config: { 
+                numberOfVideos: number;
+                aspectRatio: string;
+            };
+        } = {
+            model: 'veo-2.0-generate-001',
+            prompt: finalPrompt.trim().replace(/\s\s+/g, ' '),
+            config: { 
+                numberOfVideos: 1,
+                aspectRatio: segment.aspectRatio,
+            }
+        };
+        
+        if (segment.startImage) {
+            setGenerationState(prev => ({ ...prev, message: `Processing image for segment...` }));
+            const base64Image = await fileToBase64(segment.startImage);
+            generationPayload.image = {
+                imageBytes: base64Image,
+                mimeType: segment.startImage.type,
+            };
+        }
+        
+        let operation = await ai.models.generateVideos(generationPayload);
+
+        setGenerationState(prev => ({ ...prev, message: `Processing video... This may take a few minutes.` }));
+
+        while (!operation.done) {
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            operation = await ai.operations.getVideosOperation({ operation: operation });
+        }
+
+        if (operation.response?.generatedVideos?.[0]?.video?.uri) {
+            const downloadLink = operation.response.generatedVideos[0].video.uri;
+            const videoResponse = await fetch(`${downloadLink}&key=${apiKey}`);
+            if (!videoResponse.ok) throw new Error(`Failed to download video from URI. Status: ${videoResponse.status}`);
+            
+            const videoBlob = await videoResponse.blob();
+            const videoUrl = URL.createObjectURL(videoBlob);
+            
+            setVideoSegments(prev => prev.map(s => s.id === segmentId ? { ...s, status: 'success', videoUrl } : s));
+            setGenerationState({ isGenerating: false, progress: 100, message: 'Video generated successfully!', status: 'success' });
+        } else {
+            throw new Error('Video generation operation completed but no video URI was found.');
+        }
+    } catch (error) {
+        console.error(`Error generating video for segment ${segmentId}:`, error);
+        setVideoSegments(prev => prev.map(s => s.id === segmentId ? { ...s, status: 'error' } : s));
+        setGenerationState({
+            isGenerating: false, progress: 0, message: `An error occurred: ${error instanceof Error ? error.message : 'Unknown error'}`, status: 'error',
+        });
+    }
+  };
+
+
   const handleGenerate = async () => {
     if (generationState.isGenerating) {
         return;
@@ -97,14 +179,21 @@ const App: React.FC = () => {
 
     // --- VIDEO GENERATOR LOGIC ---
     if (activeTab === Tab.VIDEO_GENERATOR) {
+        const segmentsToGenerate = videoSegments.filter(s => s.status === 'idle' || s.status === 'error');
+
+        if (segmentsToGenerate.length === 0) {
+            setGenerationState({ isGenerating: false, progress: 100, message: 'No new segments to generate.', status: 'idle' });
+            return;
+        }
+
         setGenerationState({ isGenerating: true, progress: 0, message: 'Initializing video generation...', status: 'generating' });
 
         try {
-            const totalSegments = videoSegments.length;
+            const totalSegments = segmentsToGenerate.length;
             let successfulGenerations = 0;
 
             for (let i = 0; i < totalSegments; i++) {
-                const segment = videoSegments[i];
+                const segment = segmentsToGenerate[i];
                 setVideoSegments(prev => prev.map(s => s.id === segment.id ? { ...s, status: 'generating' } : s));
                 setGenerationState(prev => ({ ...prev, message: `Generating video ${i + 1} of ${totalSegments}...` }));
 
@@ -120,7 +209,7 @@ const App: React.FC = () => {
                             aspectRatio: string;
                         };
                     } = {
-                        model: 'veo-3.0-fast-generate-001',
+                        model: 'veo-2.0-generate-001',
                         prompt: finalPrompt.trim().replace(/\s\s+/g, ' '),
                         config: { 
                             numberOfVideos: 1,
@@ -169,7 +258,7 @@ const App: React.FC = () => {
             if (successfulGenerations === totalSegments) {
                 setGenerationState({ isGenerating: false, progress: 100, message: 'All videos generated successfully!', status: 'success' });
             } else {
-                throw new Error(`${totalSegments - successfulGenerations} video(s) failed to generate.`);
+                setGenerationState({ isGenerating: false, progress: 100, message: `${totalSegments - successfulGenerations} video(s) failed to generate.`, status: 'error' });
             }
         } catch (error) {
             console.error("Video generation process failed:", error);
@@ -268,7 +357,12 @@ const App: React.FC = () => {
   const renderActiveTab = () => {
     switch (activeTab) {
       case Tab.VIDEO_GENERATOR:
-        return <VideoGeneratorTab segments={videoSegments} setSegments={setVideoSegments} />;
+        return <VideoGeneratorTab 
+          segments={videoSegments} 
+          setSegments={setVideoSegments}
+          onGenerateSegment={handleGenerateSingleSegment}
+          isGenerating={generationState.isGenerating}
+        />;
       case Tab.IMAGE_GENERATOR:
         return <ImageGeneratorTab
           prompt={imagePrompt}
@@ -304,7 +398,7 @@ const App: React.FC = () => {
 
   const getFooterButtonText = () => {
       switch(activeTab) {
-          case Tab.VIDEO_GENERATOR: return "Generate Videos";
+          case Tab.VIDEO_GENERATOR: return "Generate All";
           case Tab.IMAGE_GENERATOR: return "Generate Images";
           default: return "";
       }
