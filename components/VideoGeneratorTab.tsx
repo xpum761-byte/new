@@ -7,6 +7,8 @@ import { ImageDropzone } from './ImageDropzone';
 interface VideoGeneratorTabProps {
   segments: VideoSegment[];
   setSegments: React.Dispatch<React.SetStateAction<VideoSegment[]>>;
+  onGenerateSegment: (segmentId: string) => void;
+  isGenerating: boolean;
 }
 
 const StatusIcon: React.FC<{ status: VideoSegment['status'] }> = ({ status }) => {
@@ -23,7 +25,7 @@ const StatusIcon: React.FC<{ status: VideoSegment['status'] }> = ({ status }) =>
 };
 
 
-export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, setSegments }) => {
+export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, setSegments, onGenerateSegment, isGenerating }) => {
   const dragItem = useRef<number | null>(null);
   const dragOverItem = useRef<number | null>(null);
   const videoAspectRatios = ['16:9', '9:16', '4:3', '1:1', '4:5'];
@@ -50,11 +52,12 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
     setSegments(newSegments);
   };
   
-  const handleDownload = (url: string, prompt: string) => {
-    const filename = prompt.substring(0, 20).replace(/\s+/g, '_') || 'segment';
+  const handleDownload = (url: string, prompt: string, segmentNumber: number) => {
+    const promptSnippet = prompt.substring(0, 20).replace(/\s+/g, '_') || 'video';
+    const filename = `synthv_segment_${segmentNumber}_${promptSnippet}`;
     const link = document.createElement('a');
     link.href = url;
-    link.download = `synthv_${filename}_${Date.now()}.mp4`;
+    link.download = `${filename}.mp4`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -102,6 +105,21 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
                         rows={5}
                         className="w-full bg-brand-bg/50 border border-brand-primary/20 rounded-md p-2 text-sm text-brand-text focus:ring-1 focus:ring-brand-accent focus:outline-none resize-y"
                       />
+                      
+                      {(segment.status === 'idle' || segment.status === 'error') && (
+                        <button
+                          onClick={() => onGenerateSegment(segment.id)}
+                          disabled={isGenerating}
+                          className="w-full px-4 py-2 bg-brand-accent/90 text-black font-bold rounded-md hover:bg-brand-accent transition-colors disabled:bg-brand-secondary disabled:text-brand-text-muted/50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {segment.status === 'error' ? 'Retry Generation' : 'Generate Segment'}
+                        </button>
+                      )}
+
                       <ImageDropzone 
                           imageFile={segment.startImage}
                           onFileChange={(file) => updateSegment(segment.id, { startImage: file })}
@@ -122,12 +140,15 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
                   </div>
 
                   {/* Right Side: Video Output */}
-                   <div className="bg-brand-bg/50 rounded-lg flex items-center justify-center min-h-[200px] relative overflow-hidden">
+                   <div 
+                    className="bg-brand-bg/50 rounded-lg flex items-center justify-center relative overflow-hidden"
+                    style={segment.videoUrl ? { aspectRatio: segment.aspectRatio.replace(':', ' / ') } : { minHeight: '200px' }}
+                   >
                     {segment.videoUrl ? (
                         <>
-                         <video src={segment.videoUrl} controls loop className="w-full h-full object-contain" />
+                         <video src={segment.videoUrl} controls loop className="w-full h-full object-contain bg-black" />
                          <button
-                            onClick={() => handleDownload(segment.videoUrl!, segment.prompt)}
+                            onClick={() => handleDownload(segment.videoUrl!, segment.prompt, index + 1)}
                             className="absolute top-2 right-2 bg-black/50 text-white rounded-full p-1.5 hover:bg-brand-primary transition-colors"
                             aria-label="Download video segment"
                          >
