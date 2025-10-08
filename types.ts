@@ -24,6 +24,7 @@ export interface VideoSegment {
   status: 'idle' | 'generating' | 'success' | 'error';
   aspectRatio: string;
   mode: 'transition';
+  continueFromPrevious: boolean;
 }
 
 // --- Prompt Generator Types ---
@@ -79,7 +80,7 @@ export interface ClipSegment {
 
 export interface PromptGeneratorTabProps {
   apiKey: string;
-  onExportToBatch: (segments: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'>[]) => void;
+  onExportToBatch: (segments: Omit<VideoSegment, 'id' | 'status' | 'videoUrl' | 'continueFromPrevious'>[]) => void;
   characters: Character[];
   setCharacters: Dispatch<SetStateAction<Character[]>>;
   sceneSettings: SceneSettings;
