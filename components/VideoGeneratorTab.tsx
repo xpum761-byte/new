@@ -31,7 +31,8 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
   const videoAspectRatios = ['16:9', '9:16', '4:3', '1:1', '4:5'];
 
   const addSegment = () => {
-    setSegments([...segments, { id: crypto.randomUUID(), prompt: '', startImage: undefined, videoUrl: undefined, status: 'idle', aspectRatio: '16:9', mode: 'transition' }]);
+// FIX: Add missing 'continueFromPrevious' property to the new segment object to match the `VideoSegment` type definition.
+    setSegments([...segments, { id: crypto.randomUUID(), prompt: '', startImage: undefined, videoUrl: undefined, status: 'idle', aspectRatio: '16:9', mode: 'transition', continueFromPrevious: false }]);
   };
 
   const removeSegment = (id: string) => {
@@ -120,7 +121,24 @@ export const VideoGeneratorTab: React.FC<VideoGeneratorTabProps> = ({ segments, 
                         </button>
                       )}
 
+                      {index > 0 && (
+                        <div className="flex items-center gap-2 -mt-2">
+                            <input
+                                type="checkbox"
+                                id={`continue-${segment.id}`}
+                                checked={!!segment.continueFromPrevious}
+                                onChange={(e) => updateSegment(segment.id, { continueFromPrevious: e.target.checked, startImage: undefined })}
+                                className="w-4 h-4 rounded text-brand-primary bg-brand-bg border-brand-secondary focus:ring-brand-accent"
+                                aria-label="Continue from previous segment's last frame"
+                            />
+                            <label htmlFor={`continue-${segment.id}`} className="text-sm text-brand-text-muted cursor-pointer">
+                                Continue from previous segment's last frame
+                            </label>
+                        </div>
+                      )}
+
                       <ImageDropzone 
+                          disabled={!!segment.continueFromPrevious}
                           imageFile={segment.startImage}
                           onFileChange={(file) => updateSegment(segment.id, { startImage: file })}
                           onFileRemove={() => updateSegment(segment.id, { startImage: undefined })}

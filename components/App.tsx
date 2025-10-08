@@ -27,6 +27,69 @@ const fileToBase64 = (file: File): Promise<string> => {
     });
 };
 
+// Helper to extract the last frame of a video
+const extractLastFrame = (videoUrl: string): Promise<File> => {
+    return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        video.crossOrigin = "anonymous";
+
+        const onSeeked = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    cleanup();
+                    return reject(new Error('Could not get canvas context.'));
+                }
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        cleanup();
+                        return reject(new Error('Canvas toBlob returned null.'));
+                    }
+                    const file = new File([blob], 'last_frame.png', { type: 'image/png' });
+                    cleanup();
+                    resolve(file);
+                }, 'image/png');
+            } catch (err) {
+                cleanup();
+                reject(err);
+            }
+        };
+
+        const onLoadedMetadata = () => {
+            video.currentTime = video.duration;
+        };
+        
+        const onError = (e: Event | string) => {
+             cleanup();
+             const errorMessage = typeof e === 'string' ? e : (e.target as HTMLVideoElement)?.error?.message || 'Unknown video error';
+             reject(new Error(`Failed to load video for frame extraction. Error: ${errorMessage}`));
+        }
+
+        const cleanup = () => {
+            video.removeEventListener('loadedmetadata', onLoadedMetadata);
+            video.removeEventListener('seeked', onSeeked);
+            video.removeEventListener('error', onError);
+            // Revoke the object URL if it was created for this video
+            if (video.src.startsWith('blob:')) {
+                URL.revokeObjectURL(video.src);
+            }
+            video.src = '';
+            video.removeAttribute('src');
+        };
+        
+        video.addEventListener('loadedmetadata', onLoadedMetadata);
+        video.addEventListener('seeked', onSeeked);
+        video.addEventListener('error', onError);
+        
+        video.src = videoUrl;
+        video.load();
+    });
+};
+
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.PROMPT_GENERATOR);
@@ -72,11 +135,12 @@ const App: React.FC = () => {
     setOpenSettings(false);
   };
 
-  const handleExportToBatch = (segmentData: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'>[]) => {
+  const handleExportToBatch = (segmentData: Omit<VideoSegment, 'id' | 'status' | 'videoUrl' | 'continueFromPrevious'>[]) => {
     const newSegments: VideoSegment[] = segmentData.map(data => ({
         ...data,
         id: crypto.randomUUID(),
         status: 'idle',
+        continueFromPrevious: false,
     }));
     setVideoSegments(newSegments);
     setActiveTab(Tab.VIDEO_GENERATOR);
@@ -93,17 +157,34 @@ const App: React.FC = () => {
     }
 
     const ai = new GoogleGenAI({ apiKey: apiKey });
-    const segment = videoSegments.find(s => s.id === segmentId);
+    const segmentIndex = videoSegments.findIndex(s => s.id === segmentId);
 
-    if (!segment) {
+    if (segmentIndex === -1) {
         console.error("Segment to generate not found:", segmentId);
         return;
     }
 
+    const segment = videoSegments[segmentIndex];
+
     setGenerationState({ isGenerating: true, progress: 0, message: 'Initializing single segment generation...', status: 'generating' });
     setVideoSegments(prev => prev.map(s => s.id === segmentId ? { ...s, status: 'generating' } : s));
+    
+    let startImageForGeneration: File | undefined = segment.startImage;
 
     try {
+        if (segment.continueFromPrevious && segmentIndex > 0) {
+            const previousSegment = videoSegments[segmentIndex - 1];
+            if (previousSegment.status === 'success' && previousSegment.videoUrl) {
+                setGenerationState(prev => ({ ...prev, message: `Extracting last frame from previous segment...` }));
+                startImageForGeneration = await extractLastFrame(previousSegment.videoUrl);
+            } else {
+                alert("Please generate the previous segment successfully before continuing from it.");
+                setVideoSegments(prev => prev.map(s => s.id === segmentId ? { ...s, status: 'idle' } : s));
+                setGenerationState({ isGenerating: false, progress: 0, message: 'Previous segment not ready.', status: 'idle' });
+                return;
+            }
+        }
+        
         const finalPrompt = segment.prompt;
         
         const generationPayload: {
@@ -115,7 +196,7 @@ const App: React.FC = () => {
                 aspectRatio: string;
             };
         } = {
-            model: 'veo-3.0-fast-generate-001',
+            model: 'veo-2.0-generate-001',
             prompt: finalPrompt.trim().replace(/\s\s+/g, ' '),
             config: { 
                 numberOfVideos: 1,
@@ -123,12 +204,12 @@ const App: React.FC = () => {
             }
         };
         
-        if (segment.startImage) {
+        if (startImageForGeneration) {
             setGenerationState(prev => ({ ...prev, message: `Processing image for segment...` }));
-            const base64Image = await fileToBase64(segment.startImage);
+            const base64Image = await fileToBase64(startImageForGeneration);
             generationPayload.image = {
                 imageBytes: base64Image,
-                mimeType: segment.startImage.type,
+                mimeType: startImageForGeneration.type,
             };
         }
         
@@ -194,10 +275,30 @@ const App: React.FC = () => {
 
             for (let i = 0; i < totalSegments; i++) {
                 const segment = segmentsToGenerate[i];
+                const originalIndex = videoSegments.findIndex(s => s.id === segment.id);
+
                 setVideoSegments(prev => prev.map(s => s.id === segment.id ? { ...s, status: 'generating' } : s));
                 setGenerationState(prev => ({ ...prev, message: `Generating video ${i + 1} of ${totalSegments}...` }));
+                
+                let startImageForGeneration: File | undefined = segment.startImage;
 
                 try {
+                    // --- Continuation Logic ---
+                    if (segment.continueFromPrevious && originalIndex > 0) {
+                        const previousSegment = videoSegments[originalIndex - 1];
+                        if (previousSegment.status === 'success' && previousSegment.videoUrl) {
+                            setGenerationState(prev => ({ ...prev, message: `Extracting frame from segment ${originalIndex}...` }));
+                             try {
+                                startImageForGeneration = await extractLastFrame(previousSegment.videoUrl);
+                            } catch (frameError) {
+                                console.error(`Error extracting frame from previous segment:`, frameError);
+                                throw new Error(`Failed to get frame from segment ${originalIndex}. Cannot continue.`);
+                            }
+                        } else {
+                            throw new Error(`Cannot continue: Previous segment ${originalIndex} did not succeed.`);
+                        }
+                    }
+
                     const finalPrompt = segment.prompt;
                     
                     const generationPayload: {
@@ -209,7 +310,7 @@ const App: React.FC = () => {
                             aspectRatio: string;
                         };
                     } = {
-                        model: 'veo-3.0-fast-generate-001',
+                        model: 'veo-2.0-generate-001',
                         prompt: finalPrompt.trim().replace(/\s\s+/g, ' '),
                         config: { 
                             numberOfVideos: 1,
@@ -217,12 +318,12 @@ const App: React.FC = () => {
                         }
                     };
                     
-                    if (segment.startImage) {
+                    if (startImageForGeneration) {
                         setGenerationState(prev => ({ ...prev, message: `Processing image for segment ${i + 1}...` }));
-                        const base64Image = await fileToBase64(segment.startImage);
+                        const base64Image = await fileToBase64(startImageForGeneration);
                         generationPayload.image = {
                             imageBytes: base64Image,
-                            mimeType: segment.startImage.type,
+                            mimeType: startImageForGeneration.type,
                         };
                     }
                     
@@ -284,7 +385,7 @@ const App: React.FC = () => {
                 const textPart = { text: imagePrompt };
 
                 const response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash-image-preview',
+                    model: 'gemini-2.5-flash-image',
                     contents: { parts: [imagePart1, imagePart2, textPart] },
                     config: { responseModalities: [Modality.IMAGE, Modality.TEXT] },
                 });
@@ -310,7 +411,7 @@ const App: React.FC = () => {
                 const textPart = { text: imagePrompt };
 
                 const response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash-image-preview',
+                    model: 'gemini-2.5-flash-image',
                     contents: { parts: [imagePart, textPart] },
                     config: { responseModalities: [Modality.IMAGE, Modality.TEXT] },
                 });

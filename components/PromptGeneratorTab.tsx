@@ -376,7 +376,7 @@ Isi JSON harus mencakup:
     *   Gaya: ${graphicStyles.join(', ')}
     *   Pencahayaan: ${lightings.join(', ')}
 
-**PENTING**: Untuk setiap event dalam timeline, properti "start" dan "end" HARUS berupa string yang berisi angka numerik yang merepresentasikan waktu dalam detik (contoh: "0", "8.5", "15"). Jangan gunakan deskripsi waktu seperti 'Pagi hari' atau 'Hari 1'. Buatlah cerita yang logis dengan durasi total sesuai durasi yang di tuliskan. Pastikan semua waktu konsisten dan kronologis. Dialog harus dalam Bahasa yang di tuliskan.`;
+**PENTING**: Untuk setiap event dalam timeline, properti "start" dan "end" HARUS berupa string yang berisi angka numerik yang merepresentasikan waktu dalam detik (contoh: "0", "8.5", "15"). Jangan gunakan deskripsi waktu seperti 'Pagi hari' atau 'Hari 1'. Buatlah cerita yang logis dengan durasi total sekitar 30-60 detik. Pastikan semua waktu konsisten dan kronologis. Dialog harus dalam Bahasa Indonesia.`;
 
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
@@ -615,11 +615,13 @@ Daftar Pencahayaan: ${lightings.join(', ')}`;
                 finalPrompt += ` Terdengar suara latar: ${sceneSettings.backgroundSound}.`;
             }
 
+// FIX: Add missing 'continueFromPrevious' property to conform to the VideoSegment type. It is set based on whether it is the first segment or a continuation.
             const segment: Omit<VideoSegment, 'id' | 'status' | 'videoUrl'> = {
                 prompt: finalPrompt.trim().replace(/\s\s+/g, ' '),
                 startImage: referenceImageForSegment,
                 aspectRatio: '16:9',
                 mode: 'transition',
+                continueFromPrevious: index > 0,
             };
             return segment;
         });
